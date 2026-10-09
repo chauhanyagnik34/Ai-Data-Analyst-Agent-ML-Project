@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-10-09 23:30:13",
+  "total_test_cases": 12,
+  "analytical_correctness_pct": 100.0,
+  "execution_success_rate_pct": 100.0,
+  "average_latency_ms": 30.13,
+  "ml_classifier_accuracy_pct": 85.71,
+  "ml_classifier_macro_f1": 0.8545,
+  "results": [
+    {
+      "ID": "TC-01",
+      "Question": "What is the average salary?",
+      "ML Intent": "aggregation",
+      "Status": "PASS",
+      "Latency": "98.2ms"
+    },
+    {
+      "ID": "TC-02",
+      "Question": "What is the maximum salary?",
+      "ML Intent": "maximum",
+      "Status": "PASS",
+      "Latency": "4.6ms"
+    },
+    {
+      "ID": "TC-03",
+      "Question": "What is the lowest salary?",
+      "ML Intent": "minimum",
+      "Status": "PASS",
+      "Latency": "4.0ms"
+    },
+    {
+      "ID": "TC-04",
+      "Question": "What is the median salary?",
+      "ML Intent": "minimum",
+      "Status": "PASS",
+      "Latency": "77.4ms"
+    },
+    {
+      "ID": "TC-05",
+      "Question": "How many rows are in this dataset?",
+      "ML Intent": "counting",
+      "Status": "PASS",
+      "Latency": "5.2ms"
+    },
+    {
+      "ID": "TC-06",
+      "Question": "How many columns are present?",
+      "ML Intent": "counting",
+      "Status": "PASS",
+      "Latency": "5.5ms"
+    },
+    {
+      "ID": "TC-07",
+      "Question": "Show average salary by department",
+      "ML Intent": "group_comparison",
+      "Status": "PASS",
+      "Latency": "90.7ms"
+    },
+    {
+      "ID": "TC-08",
+      "Question": "Show employees with salary greater ...",
+      "ML Intent": "filtering",
+      "Status": "PASS",
+      "Latency": "4.8ms"
+    },
+    {
+      "ID": "TC-09",
+      "Question": "Show the top 3 employees by salary",
+      "ML Intent": "ranking",
+      "Status": "PASS",
+      "Latency": "55.3ms"
+    },
+    {
+      "ID": "TC-10",
+      "Question": "Are there any missing values in thi...",
+      "ML Intent": "data_quality",
+      "Status": "PASS",
+      "Latency": "5.0ms"
+    },
+    {
+      "ID": "TC-11",
+      "Question": "Show correlation between numerical ...",
+      "ML Intent": "correlation",
+      "Status": "PASS",
+      "Latency": "6.0ms"
+    },
+    {
+      "ID": "TC-12",
+      "Question": "Predict future bitcoin prices for 2...",
+      "ML Intent": "data_quality",
+      "Status": "PASS",
+      "Latency": "5.0ms"
+    }
+  ]
+}
