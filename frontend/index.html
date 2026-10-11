@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1424">
-  <title>AI Data Analyst Agent</title>
+  <title>AI Agent — Data Analyst</title>
   <style>
     :root {
       color-scheme: dark;
@@ -25,8 +25,8 @@
       --success: #42c995;
       --warning: #f3c96b;
       --danger: #f17c9b;
-      --shadow: 0 8px 28px rgba(0,0,0,.2);
-      --shadow-hover: 0 14px 36px rgba(93,70,180,.18);
+      --shadow: 0 8px 28px rgba(0,0,0,.22);
+      --shadow-hover: 0 14px 36px rgba(93,70,180,.2);
       --radius: 14px;
     }
     [data-theme="light"] {
@@ -34,7 +34,7 @@
       --bg: #f0f3fb;
       --bg-2: #f7f8fd;
       --sidebar: #e9edf8;
-      --card: #fff;
+      --card: #ffffff;
       --card-hover: #f6f3ff;
       --input: #f5f6fc;
       --line: #dce2f1;
@@ -55,7 +55,7 @@
     html, body { margin: 0; min-height: 100%; }
     body {
       min-width: 320px;
-      background: radial-gradient(ellipse at 52% -25%, rgba(119,89,232,.13), transparent 42%), var(--bg);
+      background: radial-gradient(ellipse at 52% -25%, rgba(119,89,232,.14), transparent 42%), var(--bg);
       color: var(--text);
       font: 13px/1.45 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
       transition: background-color .22s, color .22s;
@@ -64,275 +64,1189 @@
     button { color: inherit; }
     [hidden] { display: none !important; }
     .app { min-height: 100vh; }
+
+    /* Top Navigation Bar */
     .topbar {
-      height: 62px; display: grid; grid-template-columns: 205px minmax(180px,1fr) auto; align-items: center;
-      padding: 0 18px 0 0; background: color-mix(in srgb, var(--bg-2) 90%, transparent);
-      border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 12; backdrop-filter: blur(16px);
+      height: 62px;
+      display: grid;
+      grid-template-columns: 215px minmax(180px,1fr) auto;
+      align-items: center;
+      padding: 0 18px 0 0;
+      background: color-mix(in srgb, var(--bg-2) 92%, transparent);
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 15;
+      backdrop-filter: blur(16px);
     }
-    .brand { height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 15px; border-right: 1px solid var(--line); }
-    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(145deg,#b39cff,#6f54dd); box-shadow: 0 6px 20px rgba(119,89,232,.35); font-size: 20px; }
-    .brand strong { display: block; font-size: 12px; line-height: 1.2; letter-spacing: .01em; }
-    .brand small { display: block; margin-top: 2px; color: var(--quiet); font-size: 9px; }
-    .global-search { width: min(460px,72%); height: 34px; margin-left: 25px; display: flex; align-items: center; gap: 9px; padding: 0 12px; background: var(--input); border: 1px solid transparent; border-radius: 10px; color: var(--quiet); }
-    .global-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent); }
-    .global-search input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 11px; }
+    .brand {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 16px;
+      border-right: 1px solid var(--line);
+      cursor: pointer;
+    }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: linear-gradient(145deg, #b39cff, #6f54dd);
+      box-shadow: 0 6px 20px rgba(119,89,232,.35);
+      font-size: 20px;
+    }
+    .brand strong { display: block; font-size: 13px; line-height: 1.2; letter-spacing: .01em; }
+    .brand small { display: block; margin-top: 1px; color: var(--quiet); font-size: 9px; }
+
+    .global-search {
+      width: min(460px, 72%);
+      height: 35px;
+      margin-left: 22px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 12px;
+      background: var(--input);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--quiet);
+    }
+    .global-search:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .global-search input {
+      min-width: 0;
+      width: 100%;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      font-size: 11px;
+    }
     .global-search input::placeholder { color: var(--quiet); }
-    .top-actions { display: flex; align-items: center; gap: 9px; }
-    .top-icon { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; transition: .2s; }
+
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .top-icon {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: .2s;
+    }
     .top-icon:hover { color: var(--text); background: var(--card-hover); transform: translateY(-1px); }
-    .profile { display: flex; align-items: center; gap: 8px; margin-left: 3px; padding: 4px 0 4px 6px; border: 0; background: transparent; cursor: pointer; text-align: left; }
-    .avatar { width: 27px; height: 27px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg,#a88bff,#7656dc); font-size: 10px; font-weight: 750; }
-    .profile span:last-child { font-size: 10px; color: var(--muted); }
-    .layout { display: grid; grid-template-columns: 205px minmax(0,1fr) 306px; min-height: calc(100vh - 62px); }
-    .sidebar { display: flex; flex-direction: column; gap: 16px; padding: 14px 11px 12px; background: color-mix(in srgb,var(--sidebar) 92%,transparent); border-right: 1px solid var(--line); min-width: 0; }
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 4px;
+      padding: 4px 6px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: linear-gradient(145deg, #a88bff, #7656dc);
+      font-size: 11px;
+      font-weight: 750;
+    }
+    .profile span:last-child { font-size: 11px; color: var(--muted); }
+
+    /* Layout Grids */
+    .layout {
+      display: grid;
+      grid-template-columns: 215px minmax(0, 1fr) 315px;
+      min-height: calc(100vh - 62px);
+      transition: grid-template-columns .24s ease;
+    }
+    .layout.chat-closed {
+      grid-template-columns: 215px minmax(0, 1fr) !important;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      padding: 15px 12px 14px;
+      background: color-mix(in srgb, var(--sidebar) 92%, transparent);
+      border-right: 1px solid var(--line);
+      min-width: 0;
+    }
     .nav-list { display: grid; gap: 3px; }
-    .nav-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 31px; padding: 7px 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--muted); text-align: left; cursor: pointer; transition: .2s; font-size: 11px; }
-    .nav-item .nav-icon { width: 16px; text-align: center; color: var(--quiet); font-size: 13px; }
-    .nav-item:hover { color: var(--text); background: color-mix(in srgb,var(--accent-soft) 48%,transparent); transform: translateX(2px); }
-    .nav-item.active { color: var(--text); background: linear-gradient(90deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent-soft) 38%,transparent)); border-color: color-mix(in srgb,var(--accent) 30%,transparent); box-shadow: inset 2px 0 var(--accent); }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 33px;
+      padding: 8px 10px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+      transition: .18s;
+      font-size: 11.5px;
+      font-weight: 550;
+    }
+    .nav-item .nav-icon { width: 17px; text-align: center; color: var(--quiet); font-size: 13px; }
+    .nav-item:hover {
+      color: var(--text);
+      background: color-mix(in srgb, var(--accent-soft) 48%, transparent);
+      transform: translateX(2px);
+    }
+    .nav-item.active {
+      color: var(--text);
+      background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent-soft) 38%, transparent));
+      border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+      box-shadow: inset 3px 0 var(--accent);
+    }
     .nav-item.active .nav-icon { color: var(--accent); }
-    .nav-chevron { margin-left: auto; color: var(--quiet); }
-    .step-nav { padding: 3px 0 5px 16px; display: grid; gap: 2px; }
-    .step-nav button { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border: 0; border-radius: 7px; background: transparent; color: var(--quiet); text-align: left; font-size: 9px; cursor: pointer; transition: .18s; }
-    .step-nav button:hover, .step-nav button.active { color: var(--text); background: color-mix(in srgb,var(--accent) 13%,transparent); }
-    .step-nav .step-num { width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; color: var(--quiet); background: var(--card); font-size: 8px; }
+    .nav-chevron { margin-left: auto; color: var(--quiet); font-size: 10px; }
+
+    .step-nav { padding: 2px 0 4px 16px; display: grid; gap: 2px; }
+    .step-nav button {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 8px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--quiet);
+      text-align: left;
+      font-size: 9.5px;
+      cursor: pointer;
+      transition: .18s;
+    }
+    .step-nav button:hover, .step-nav button.active {
+      color: var(--text);
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+    .step-nav .step-num {
+      width: 17px;
+      height: 17px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--quiet);
+      background: var(--card);
+      font-size: 8px;
+    }
     .step-nav button.active .step-num { color: #fff; background: var(--accent-2); }
-    .sidebar-label { color: var(--quiet); font-size: 9px; text-transform: uppercase; letter-spacing: .11em; font-weight: 750; }
-    .sidebar-card { padding: 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--card); box-shadow: var(--shadow); }
-    .file-chip { display: flex; gap: 8px; align-items: center; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
-    .file-icon { width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 auto; color: var(--accent); border-radius: 8px; background: var(--accent-soft); }
-    .file-chip strong { display: block; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-    .file-chip small { color: var(--quiet); font-size: 8px; }
+
+    .sidebar-label {
+      color: var(--quiet);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: .11em;
+      font-weight: 750;
+    }
+    .sidebar-card {
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+    .file-chip {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+    }
+    .file-icon {
+      width: 29px;
+      height: 29px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: var(--accent);
+      border-radius: 8px;
+      background: var(--accent-soft);
+    }
+    .file-chip strong {
+      display: block;
+      max-width: 125px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 10px;
+    }
+    .file-chip small { color: var(--quiet); font-size: 8.5px; }
     .sidebar-metrics { display: grid; gap: 5px; padding-top: 7px; }
-    .side-metric { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 9px; }
+    .side-metric { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 9.5px; }
     .side-metric strong { color: var(--text); font-weight: 650; }
+
     .type-list { display: grid; gap: 5px; margin-top: 8px; }
-    .type-row { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
+    .type-row { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9.5px; }
     .type-row strong { margin-left: auto; color: var(--text); }
     .type-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
     .type-dot.numeric { background: var(--success); }
     .type-dot.date { background: #63a9ff; }
-    .sidebar-art { margin-top: auto; min-height: 82px; display: grid; place-items: end center; overflow: hidden; position: relative; border-radius: 13px; background: radial-gradient(ellipse at 50% 100%,rgba(119,89,232,.24),transparent 65%); }
-    .sidebar-art .bot-emoji { font-size: 45px; filter: drop-shadow(0 7px 14px rgba(119,89,232,.35)); }
-    .sidebar-art p { position: absolute; left: 7px; top: 5px; margin: 0; color: var(--accent); font-size: 9px; line-height: 1.25; transform: rotate(-7deg); }
-    .workspace { min-width: 0; padding: 15px; background: color-mix(in srgb,var(--bg) 87%,transparent); }
-    .workspace-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; padding: 0 2px; }
-    .title-line { display: flex; gap: 11px; align-items: center; min-width: 0; }
-    .hero-bot { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid color-mix(in srgb,var(--accent) 25%,var(--line)); border-radius: 15px; background: radial-gradient(circle at 30% 25%,#57458f,var(--card)); font-size: 28px; }
-    .workspace-head h1 { margin: 0 0 3px; font-size: clamp(16px,1.7vw,21px); letter-spacing: -.03em; line-height: 1.2; }
-    .workspace-head p { margin: 0; color: var(--muted); font-size: 9px; }
-    .dataset-status { flex: 0 0 auto; max-width: 220px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 11px; }
+
+    .sidebar-art {
+      margin-top: auto;
+      min-height: 80px;
+      display: grid;
+      place-items: end center;
+      overflow: hidden;
+      position: relative;
+      border-radius: 13px;
+      background: radial-gradient(ellipse at 50% 100%, rgba(119,89,232,.22), transparent 65%);
+    }
+    .sidebar-art .bot-emoji { font-size: 42px; filter: drop-shadow(0 7px 14px rgba(119,89,232,.35)); }
+    .sidebar-art p {
+      position: absolute;
+      left: 8px;
+      top: 6px;
+      margin: 0;
+      color: var(--accent);
+      font-size: 9px;
+      line-height: 1.25;
+      transform: rotate(-6deg);
+    }
+
+    /* Workspace */
+    .workspace {
+      min-width: 0;
+      padding: 16px 18px;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      overflow-y: auto;
+    }
+    .workspace-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 0 2px;
+    }
+    .title-line { display: flex; gap: 12px; align-items: center; min-width: 0; }
+    .hero-bot {
+      width: 46px;
+      height: 46px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+      border-radius: 14px;
+      background: radial-gradient(circle at 30% 25%, #57458f, var(--card));
+      font-size: 26px;
+      box-shadow: 0 8px 20px rgba(119,89,232,.25);
+    }
+    .workspace-head h1 {
+      margin: 0 0 3px;
+      font-size: clamp(17px, 1.8vw, 22px);
+      letter-spacing: -.03em;
+      line-height: 1.2;
+    }
+    .workspace-head p { margin: 0; color: var(--muted); font-size: 10px; }
+    .dataset-status {
+      flex: 0 0 auto;
+      max-width: 250px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 11px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+    }
     .dataset-status .status-text { min-width: 0; }
-    .dataset-status small { display: block; color: var(--quiet); font-size: 8px; }
-    .dataset-status strong { display: block; max-width: 115px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
-    .status-loaded { color: var(--success); padding: 2px 6px; background: color-mix(in srgb,var(--success) 13%,transparent); border-radius: 99px; font-size: 8px; }
-    .stepper { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); margin: 0 0 12px; padding: 10px 8px 7px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
-    .step-item { position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 2px; border: 0; background: transparent; color: var(--quiet); cursor: pointer; }
-    .step-item:not(:last-child)::after { content: ""; position: absolute; height: 1px; width: calc(100% - 29px); left: calc(50% + 15px); top: 10px; background: var(--line); }
-    .step-item.done:not(:last-child)::after, .step-item.active:not(:last-child)::after { background: linear-gradient(90deg,var(--accent),var(--line)); }
-    .step-circle { width: 21px; height: 21px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--bg-2); font-size: 8px; z-index: 1; }
-    .step-item.active .step-circle, .step-item.done .step-circle { color: #fff; border-color: var(--accent); background: linear-gradient(140deg,var(--accent),var(--accent-2)); box-shadow: 0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent); }
-    .step-item span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
-    .step-item.active span:last-child { color: var(--text); }
-    .selection-layout { display: grid; grid-template-columns: minmax(0,1.03fr) minmax(0,.97fr); gap: 11px; align-items: stretch; }
-    .stack { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-    .card { min-width: 0; background: linear-gradient(145deg,var(--card),color-mix(in srgb,var(--card) 90%,var(--bg-2))); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); transition: transform 240ms ease,background-color 240ms ease,border-color 240ms ease,box-shadow 240ms ease; }
-    .card:hover { transform: translateY(-3px); background: var(--card-hover); border-color: var(--line-hover); box-shadow: var(--shadow-hover); }
-    .card-pad { padding: 11px; }
-    .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
-    .card-title { display: flex; align-items: center; gap: 7px; min-width: 0; }
-    .card-title .title-icon { color: var(--accent); font-size: 13px; }
-    .card-title h2 { margin: 0; font-size: 10px; letter-spacing: .01em; }
-    .card-subtitle { color: var(--quiet); font-size: 8px; margin-top: 2px; }
-    .text-button { padding: 4px 7px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted); font-size: 8px; cursor: pointer; transition: .2s; }
-    .text-button:hover { border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
-    .overview-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; }
-    .metric { min-width: 0; padding: 8px 7px; border: 1px solid var(--line); border-radius: 9px; background: linear-gradient(145deg,var(--input),color-mix(in srgb,var(--input) 80%,var(--accent-soft))); transition: .22s; }
-    .metric:hover { transform: translateY(-3px); border-color: var(--line-hover); box-shadow: var(--shadow-hover); }
-    .metric-icon { display: block; margin-bottom: 5px; color: var(--accent); font-size: 12px; }
-    .metric strong { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 15px; line-height: 1.05; font-variant-numeric: tabular-nums; }
-    .metric small { display: block; margin-top: 4px; color: var(--quiet); font-size: 7px; white-space: nowrap; }
-    .table-scroll { width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 8px; white-space: nowrap; }
-    th, td { padding: 6px 7px; text-align: left; border-bottom: 1px solid color-mix(in srgb,var(--line) 76%,transparent); }
-    th { position: sticky; top: 0; z-index: 1; color: var(--muted); background: var(--input); font-weight: 650; }
+    .dataset-status small { display: block; color: var(--quiet); font-size: 8.5px; }
+    .dataset-status strong {
+      display: block;
+      max-width: 125px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 10px;
+    }
+    .status-loaded {
+      color: var(--success);
+      padding: 2px 7px;
+      background: color-mix(in srgb, var(--success) 14%, transparent);
+      border-radius: 99px;
+      font-size: 8.5px;
+      font-weight: 600;
+    }
+
+    /* KDD Stepper */
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      margin: 0 0 14px;
+      padding: 10px 8px 8px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .step-item {
+      position: relative;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 0 2px;
+      border: 0;
+      background: transparent;
+      color: var(--quiet);
+      cursor: pointer;
+    }
+    .step-item:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      height: 1px;
+      width: calc(100% - 28px);
+      left: calc(50% + 14px);
+      top: 10px;
+      background: var(--line);
+    }
+    .step-item.done:not(:last-child)::after, .step-item.active:not(:last-child)::after {
+      background: linear-gradient(90deg, var(--accent), var(--line));
+    }
+    .step-circle {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--bg-2);
+      font-size: 9px;
+      z-index: 1;
+    }
+    .step-item.active .step-circle, .step-item.done .step-circle {
+      color: #fff;
+      border-color: var(--accent);
+      background: linear-gradient(140deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .step-item span:last-child {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 8.5px;
+    }
+    .step-item.active span:last-child { color: var(--text); font-weight: 600; }
+
+    /* Cards & Grids */
+    .stack { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    .card {
+      min-width: 0;
+      background: linear-gradient(145deg, var(--card), color-mix(in srgb, var(--card) 90%, var(--bg-2)));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      transition: transform 220ms ease, background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    }
+    .card:hover {
+      background: var(--card-hover);
+      border-color: var(--line-hover);
+      box-shadow: var(--shadow-hover);
+    }
+    .card-pad { padding: 13px; }
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 11px;
+    }
+    .card-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .card-title .title-icon { color: var(--accent); font-size: 14px; }
+    .card-title h2 { margin: 0; font-size: 12px; letter-spacing: .01em; }
+    .card-subtitle { color: var(--quiet); font-size: 9px; margin-top: 2px; }
+
+    .text-button {
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 8.5px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .text-button:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    /* Dashboard KPI Metrics */
+    .dashboard-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 13px;
+    }
+    .metric-card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(145deg, var(--card), color-mix(in srgb, var(--input) 85%, var(--accent-soft)));
+      box-shadow: var(--shadow);
+      transition: .22s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--line-hover);
+      box-shadow: var(--shadow-hover);
+    }
+    .metric-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .metric-tag {
+      font-size: 8.5px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 99px;
+      background: var(--input);
+      color: var(--quiet);
+    }
+    .metric-icon-badge {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+    }
+    .metric-value {
+      font-size: 21px;
+      font-weight: 750;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 4px;
+    }
+    .metric-label { color: var(--muted); font-size: 9.5px; font-weight: 550; }
+    .metric-sub {
+      color: var(--quiet);
+      font-size: 8.5px;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .metric-progress {
+      height: 4px;
+      margin-top: 8px;
+      background: var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .metric-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent));
+      border-radius: inherit;
+    }
+
+    /* About Data Section */
+    .about-data-box {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr);
+      gap: 12px;
+      margin-bottom: 13px;
+    }
+    .about-narrative {
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+    }
+    .about-narrative h3 { margin: 0 0 6px; font-size: 11.5px; color: var(--text); }
+    .about-narrative p { margin: 0; color: var(--muted); font-size: 9.5px; line-height: 1.5; }
+    .badge-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .badge-chip {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--input);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 8.5px;
+      font-weight: 550;
+    }
+
+    /* Tables */
+    .table-scroll {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      max-height: 380px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 9px; white-space: nowrap; }
+    th, td {
+      padding: 7px 9px;
+      text-align: left;
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      color: var(--text);
+      background: var(--input);
+      font-weight: 650;
+    }
     td { color: var(--muted); }
     tbody tr:last-child td { border-bottom: 0; }
-    tbody tr:hover { background: color-mix(in srgb,var(--accent) 8%,transparent); }
-    td.missing-cell { color: var(--warning); background: color-mix(in srgb,var(--warning) 9%,transparent); }
-    .preview-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--quiet); font-size: 8px; }
-    .page-controls { display: flex; align-items: center; gap: 4px; }
-    .page-controls button { width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 6px; background: var(--input); color: var(--muted); font-size: 8px; cursor: pointer; }
-    .page-controls button:hover, .page-controls button.active { color: white; background: var(--accent-2); border-color: var(--accent-2); }
-    .quality-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; }
-    .quality-item { min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: var(--input); transition: .2s; }
-    .quality-item:hover { border-color: var(--line-hover); transform: translateY(-2px); }
-    .quality-item span { display: block; color: var(--quiet); font-size: 7px; }
-    .quality-item strong { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 9px; }
-    .quality-item .bar { height: 4px; margin-top: 6px; overflow: hidden; border-radius: 4px; background: var(--line); }
-    .quality-item .bar i { display: block; width: var(--bar,50%); height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--accent-2),var(--accent)); }
-    .quality-item.good .bar i { background: linear-gradient(90deg,#36ae82,var(--success)); }
-    .quality-item.warn .bar i { background: linear-gradient(90deg,#d49c36,var(--warning)); }
-    .selection-tools { display: flex; gap: 6px; align-items: center; margin-bottom: 7px; }
-    .input-wrap { min-width: 0; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); background: var(--input); border-radius: 8px; color: var(--quiet); }
-    .input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent) 15%,transparent); }
-    .input-wrap input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 9px; }
-    .select-all { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 8px; white-space: nowrap; cursor: pointer; }
-    input[type="checkbox"] { accent-color: var(--accent-2); width: 11px; height: 11px; margin: 0; vertical-align: middle; }
-    .column-table { max-height: 278px; }
-    .column-table table { min-width: 390px; }
-    .column-table th { position: sticky; top: 0; }
-    .column-check { text-align: center; width: 31px; }
-    .type-badge { display: inline-block; padding: 2px 6px; border-radius: 99px; background: color-mix(in srgb,var(--accent) 18%,transparent); color: #c8b8ff; font-size: 7px; }
-    .type-badge.numeric { color: #80e0ba; background: rgba(66,201,149,.13); }
-    .type-badge.date { color: #93c5fd; background: rgba(99,169,255,.13); }
-    .selection-count { color: var(--quiet); font-size: 8px; }
-    .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--input); font-size: 9px; font-weight: 650; cursor: pointer; transition: .2s; }
-    .btn:hover { transform: translateY(-1px); border-color: var(--accent); background: var(--card-hover); box-shadow: 0 7px 18px rgba(93,70,180,.15); }
-    .btn.primary { color: white; border-color: transparent; background: linear-gradient(135deg,var(--accent-2),var(--accent)); }
-    .btn.primary:hover { filter: brightness(1.1); box-shadow: 0 8px 20px rgba(119,89,232,.28); }
+    tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    td.missing-cell { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+
+    .type-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 99px;
+      background: color-mix(in srgb, var(--accent) 18%, transparent);
+      color: #c8b8ff;
+      font-size: 7.5px;
+      font-weight: 600;
+    }
+    .type-badge.numeric { color: #80e0ba; background: rgba(66,201,149,.14); }
+    .type-badge.date { color: #93c5fd; background: rgba(99,169,255,.14); }
+    .type-badge.id { color: #f9c784; background: rgba(249,199,132,.14); }
+
+    /* Prompts Studio Grid */
+    .prompts-studio {
+      margin-top: 14px;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(150deg, var(--card), var(--bg-2));
+    }
+    .prompts-studio-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .prompts-studio-head h2 { margin: 0; font-size: 12px; display: flex; align-items: center; gap: 7px; }
+    .prompts-category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 11px;
+    }
+    .prompt-cat-card {
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--input);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .prompt-cat-title {
+      font-size: 9.5px;
+      font-weight: 750;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .prompt-chip {
+      width: 100%;
+      text-align: left;
+      padding: 6px 8px;
+      border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--card) 85%, transparent);
+      color: var(--muted);
+      font-size: 8.5px;
+      cursor: pointer;
+      transition: .18s;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .prompt-chip:hover {
+      color: #fff;
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 85%, transparent);
+      transform: translateX(2px);
+    }
+
+    /* Buttons & Inputs */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 6px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--text);
+      background: var(--input);
+      font-size: 9.5px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: var(--card-hover);
+      box-shadow: 0 7px 18px rgba(93,70,180,.15);
+    }
+    .btn.primary {
+      color: white;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    }
+    .btn.primary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 8px 22px rgba(119,89,232,.32);
+    }
     .btn.ghost { background: transparent; color: var(--muted); }
-    .workflow-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 5px; }
-    .workflow-actions .btn { min-width: 80px; }
-    .tip-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
-    .tip-bulb { width: 22px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: var(--accent-soft); }
-    .tip-bar strong { display: block; font-size: 8px; }
-    .tip-bar small { display: block; color: var(--quiet); font-size: 7px; }
-    .assistant { min-width: 0; display: flex; flex-direction: column; margin: 10px 10px 10px 0; border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(155deg,var(--card),var(--bg-2)); box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 82px); min-height: 480px; position: sticky; top: 72px; }
-    .assistant.expanded { position: fixed; z-index: 28; right: 14px; top: 72px; bottom: 14px; width: min(410px,calc(100vw - 28px)); height: auto; margin: 0; box-shadow: 0 22px 70px rgba(0,0,0,.5); }
-    .assistant-head { min-height: 47px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-    .assistant-avatar { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 9px; background: linear-gradient(145deg,#b29bff,#7053db); font-size: 16px; }
-    .assistant-head strong { display: block; font-size: 10px; }
-    .assistant-head small { display: flex; align-items: center; gap: 4px; color: var(--quiet); font-size: 8px; }
-    .online-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); box-shadow: 0 0 7px var(--success); }
+
+    .input-wrap {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      background: var(--input);
+      border-radius: 8px;
+      color: var(--quiet);
+    }
+    .input-wrap:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+    }
+    .input-wrap input {
+      min-width: 0;
+      width: 100%;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      font-size: 9.5px;
+    }
+
+    /* AI Assistant Panel (Right Column) */
+    .assistant {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      margin: 10px 10px 10px 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: linear-gradient(155deg, var(--card), var(--bg-2));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      height: calc(100vh - 82px);
+      min-height: 480px;
+      position: sticky;
+      top: 72px;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .assistant.closed { display: none !important; }
+    .assistant.expanded {
+      position: fixed;
+      z-index: 28;
+      right: 14px;
+      top: 72px;
+      bottom: 14px;
+      width: min(420px, calc(100vw - 28px));
+      height: auto;
+      margin: 0;
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+    }
+    .assistant-head {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border-bottom: 1px solid var(--line);
+    }
+    .assistant-avatar {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #b29bff, #7053db);
+      font-size: 16px;
+    }
+    .assistant-head strong { display: block; font-size: 10.5px; }
+    .assistant-head small { display: flex; align-items: center; gap: 4px; color: var(--quiet); font-size: 8.5px; }
+    .online-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 7px var(--success);
+    }
     .assistant-head .head-spacer { flex: 1; }
-    .chat-toolbar { display: flex; gap: 3px; }
-    .chat-toolbar button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--quiet); cursor: pointer; }
+    .chat-toolbar { display: flex; gap: 4px; }
+    .chat-toolbar button {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--quiet);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+    }
     .chat-toolbar button:hover { color: var(--text); background: var(--card-hover); }
-    .chat-messages { min-height: 0; flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 9px; scroll-behavior: smooth; }
-    .message { max-width: 95%; display: flex; flex-direction: column; align-self: flex-start; gap: 3px; animation: msgIn .22s ease both; }
+    .chat-toolbar button.close-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+
+    .chat-messages {
+      min-height: 0;
+      flex: 1;
+      overflow: auto;
+      padding: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
+    .message {
+      max-width: 95%;
+      display: flex;
+      flex-direction: column;
+      align-self: flex-start;
+      gap: 3px;
+      animation: msgIn .22s ease both;
+    }
     .message.user { align-self: flex-end; }
-    .message-meta { color: var(--quiet); font-size: 7px; }
+    .message-meta { color: var(--quiet); font-size: 7.5px; }
     .message.user .message-meta { text-align: right; }
-    .bubble { padding: 8px 9px; border: 1px solid var(--line); border-radius: 4px 11px 11px 11px; background: var(--input); color: var(--muted); font-size: 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .message.user .bubble { color: #fff; border-color: transparent; border-radius: 11px 4px 11px 11px; background: linear-gradient(135deg,var(--accent-2),#5942ae); }
-    .typing .bubble::after { content: ""; display: inline-block; width: 18px; height: 6px; margin-left: 5px; background: radial-gradient(circle,var(--accent) 1px,transparent 2px) 0 50%/6px 6px repeat-x; animation: dots .8s linear infinite; }
+    .bubble {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px 11px 11px 11px;
+      background: var(--input);
+      color: var(--muted);
+      font-size: 9.5px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.4;
+    }
+    .message.user .bubble {
+      color: #fff;
+      border-color: transparent;
+      border-radius: 11px 4px 11px 11px;
+      background: linear-gradient(135deg, var(--accent-2), #5942ae);
+    }
+    .typing .bubble::after {
+      content: "";
+      display: inline-block;
+      width: 18px;
+      height: 6px;
+      margin-left: 5px;
+      background: radial-gradient(circle, var(--accent) 1px, transparent 2px) 0 50%/6px 6px repeat-x;
+      animation: dots .8s linear infinite;
+    }
     @keyframes dots { to { background-position: 6px 50%; } }
     @keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-    .suggestions { padding: 0 10px 9px; }
-    .suggestions-label { color: var(--quiet); font-size: 8px; margin-bottom: 5px; }
-    .suggestion-list { display: grid; gap: 5px; }
-    .suggestion { width: fit-content; max-width: 100%; padding: 5px 8px; border: 1px solid color-mix(in srgb,var(--accent) 30%,var(--line)); border-radius: 99px; color: var(--muted); background: color-mix(in srgb,var(--accent-soft) 35%,transparent); text-align: left; font-size: 8px; cursor: pointer; transition: .18s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .suggestion:hover { color: var(--text); border-color: var(--accent); background: color-mix(in srgb,var(--accent-soft) 74%,transparent); transform: translateX(2px); }
-    .chat-compose { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); background: color-mix(in srgb,var(--bg-2) 72%,transparent); }
-    .chat-compose input { min-width: 0; flex: 1; height: 31px; padding: 0 9px; outline: 0; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--input); font-size: 9px; }
-    .chat-compose input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent) 15%,transparent); }
-    .send-btn { width: 31px; height: 31px; flex: 0 0 auto; border: 0; border-radius: 9px; color: white; background: linear-gradient(140deg,var(--accent),var(--accent-2)); font-size: 14px; cursor: pointer; transition: .2s; }
-    .send-btn:hover { transform: translateY(-2px) rotate(-4deg); box-shadow: 0 6px 14px rgba(119,89,232,.3); }
-    .analysis-output { display: grid; gap: 7px; padding: 8px 10px 10px; border-top: 1px solid var(--line); max-height: 38%; overflow: auto; }
+
+    .analysis-output {
+      display: grid;
+      gap: 8px;
+      padding: 8px 10px 10px;
+      border-top: 1px solid var(--line);
+      max-height: 38%;
+      overflow: auto;
+    }
     .analysis-output:empty { display: none; }
-    .output-label { color: var(--quiet); font-size: 8px; }
-    .output-table { max-height: 120px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; }
-    .output-table table { min-width: 100%; }
-    .output-table td, .output-table th { padding: 5px 6px; font-size: 8px; }
-    .chart-output img { display: block; width: 100%; max-height: 155px; object-fit: contain; border-radius: 8px; background: white; }
-    .aux-panel { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-    .aux-card { padding: 13px; }
-    .aux-card h2 { margin: 0 0 4px; font-size: 11px; }
-    .aux-card p { margin: 0 0 10px; color: var(--quiet); font-size: 9px; }
-    .aux-prompts { display: flex; flex-wrap: wrap; gap: 5px; }
-    .aux-prompts .btn { min-height: 25px; font-size: 8px; }
-    .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 15px; background: rgba(3,7,15,.68); backdrop-filter: blur(5px); }
-    .modal { width: min(430px,100%); padding: 17px; border: 1px solid var(--line-hover); border-radius: 16px; background: var(--bg-2); box-shadow: 0 25px 80px rgba(0,0,0,.45); animation: msgIn .2s ease both; }
-    .modal h2 { margin: 0 0 4px; font-size: 15px; }
+    .output-label { color: var(--quiet); font-size: 8.5px; }
+    .output-table { max-height: 125px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; }
+    .chart-output img {
+      display: block;
+      width: 100%;
+      max-height: 165px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .suggestions { padding: 0 10px 9px; }
+    .suggestions-label { color: var(--quiet); font-size: 8.5px; margin-bottom: 5px; }
+    .suggestion-list { display: grid; gap: 4px; }
+    .suggestion {
+      width: fit-content;
+      max-width: 100%;
+      padding: 5px 9px;
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+      border-radius: 99px;
+      color: var(--muted);
+      background: color-mix(in srgb, var(--accent-soft) 35%, transparent);
+      text-align: left;
+      font-size: 8.5px;
+      cursor: pointer;
+      transition: .18s;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .suggestion:hover {
+      color: var(--text);
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 74%, transparent);
+      transform: translateX(2px);
+    }
+
+    .chat-compose {
+      display: flex;
+      gap: 6px;
+      padding: 8px;
+      border-top: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg-2) 75%, transparent);
+    }
+    .chat-compose input {
+      min-width: 0;
+      flex: 1;
+      height: 32px;
+      padding: 0 10px;
+      outline: 0;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--text);
+      background: var(--input);
+      font-size: 9.5px;
+    }
+    .chat-compose input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+    }
+    .send-btn {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 9px;
+      color: white;
+      background: linear-gradient(140deg, var(--accent), var(--accent-2));
+      font-size: 14px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .send-btn:hover {
+      transform: translateY(-2px) rotate(-4deg);
+      box-shadow: 0 6px 14px rgba(119,89,232,.3);
+    }
+
+    /* Floating Re-Open AI Agent Button */
+    .floating-chat-btn {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 25;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+      border-radius: 99px;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: #ffffff;
+      font-size: 11.5px;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(119, 89, 232, 0.45);
+      cursor: pointer;
+      transition: transform .2s ease, box-shadow .2s ease;
+      animation: floatIn .25s ease both;
+    }
+    .floating-chat-btn:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 14px 38px rgba(119, 89, 232, 0.6);
+    }
+    .floating-chat-btn.visible { display: inline-flex; }
+    @keyframes floatIn {
+      from { opacity: 0; transform: translateY(12px) scale(.94); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Selection & Auxiliary Panels */
+    .selection-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+    .selection-tools { display: flex; gap: 7px; align-items: center; margin-bottom: 8px; }
+    .select-all { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 8.5px; white-space: nowrap; cursor: pointer; }
+    input[type="checkbox"] { accent-color: var(--accent-2); width: 12px; height: 12px; margin: 0; }
+    .column-table { max-height: 280px; }
+    .column-check { text-align: center; width: 32px; }
+    .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+    .workflow-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 6px; }
+    .preview-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; color: var(--quiet); font-size: 8.5px; }
+
+    .tip-bar {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 12px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--card);
+    }
+    .tip-bulb {
+      width: 24px;
+      height: 24px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--accent);
+      background: var(--accent-soft);
+      font-size: 11px;
+    }
+    .tip-bar strong { display: block; font-size: 9px; }
+    .tip-bar small { display: block; color: var(--quiet); font-size: 8px; }
+
+    /* Auxiliary Pages Styling */
+    .aux-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .aux-card { padding: 15px; }
+    .aux-card h2 { margin: 0 0 5px; font-size: 12.5px; }
+    .aux-card p { margin: 0 0 11px; color: var(--quiet); font-size: 9.5px; }
+    .aux-prompts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .aux-prompts .btn { min-height: 26px; font-size: 8.5px; }
+
+    /* Upload Zone */
+    .dropzone-box {
+      border: 2px dashed var(--line-hover);
+      border-radius: 16px;
+      padding: 34px 20px;
+      text-align: center;
+      background: color-mix(in srgb, var(--card) 60%, transparent);
+      cursor: pointer;
+      transition: .22s;
+    }
+    .dropzone-box:hover, .dropzone-box.dragover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 30%, transparent);
+      transform: translateY(-2px);
+    }
+    .dropzone-icon { font-size: 40px; margin-bottom: 10px; display: block; }
+
+    /* Modals & Toasts */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 35;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(3,7,15,.72);
+      backdrop-filter: blur(5px);
+    }
+    .modal {
+      width: min(440px, 100%);
+      padding: 18px;
+      border: 1px solid var(--line-hover);
+      border-radius: 16px;
+      background: var(--bg-2);
+      box-shadow: 0 25px 80px rgba(0,0,0,.5);
+      animation: msgIn .2s ease both;
+    }
+    .modal h2 { margin: 0 0 5px; font-size: 15px; }
     .modal p { color: var(--quiet); font-size: 10px; margin: 0 0 13px; }
-    .modal label { display: grid; gap: 5px; margin-bottom: 10px; color: var(--muted); font-size: 9px; }
-    .modal select, .modal input { width: 100%; min-height: 32px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; outline: none; color: var(--text); background: var(--input); font-size: 10px; }
+    .modal label { display: grid; gap: 5px; margin-bottom: 10px; color: var(--muted); font-size: 9.5px; }
+    .modal select, .modal input {
+      width: 100%;
+      min-height: 33px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      outline: none;
+      color: var(--text);
+      background: var(--input);
+      font-size: 10px;
+    }
     .modal select:focus, .modal input:focus { border-color: var(--accent); }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 13px; }
-    .toast { position: fixed; left: 50%; bottom: 17px; z-index: 50; max-width: min(90vw,600px); padding: 9px 13px; transform: translate(-50%,15px); opacity: 0; pointer-events: none; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); box-shadow: var(--shadow); font-size: 10px; transition: .2s; }
-    .toast.show { opacity: 1; transform: translate(-50%,0); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      z-index: 55;
+      max-width: min(90vw, 600px);
+      padding: 10px 15px;
+      transform: translate(-50%, 15px);
+      opacity: 0;
+      pointer-events: none;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      font-size: 10.5px;
+      transition: .22s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
     #fileInput { display: none; }
     .mobile-chat-toggle, .mobile-nav-toggle { display: none; }
+
+    /* Responsive */
     @media (min-width: 1350px) {
-      .layout { grid-template-columns: 225px minmax(0,1fr) 330px; }
-      .workspace { padding: 18px; }
-      .sidebar { padding: 17px 13px; }
-      .card-pad { padding: 14px; }
-      .metric { padding: 10px; }
-      table { font-size: 9px; }
-      th, td { padding: 7px 8px; }
+      .layout { grid-template-columns: 225px minmax(0, 1fr) 330px; }
+      .layout.chat-closed { grid-template-columns: 225px minmax(0, 1fr) !important; }
+      .workspace { padding: 20px; }
     }
     @media (max-width: 1120px) {
-      .topbar { grid-template-columns: 185px minmax(120px,1fr) auto; }
-      .layout { grid-template-columns: 180px minmax(0,1fr) 270px; }
-      .sidebar { padding-inline: 8px; }
-      .workspace { padding: 11px; }
-      .selection-layout { grid-template-columns: minmax(0,1fr); }
-      .column-table { max-height: 220px; }
-      .assistant { margin-right: 8px; }
+      .topbar { grid-template-columns: 185px minmax(120px, 1fr) auto; }
+      .layout { grid-template-columns: 185px minmax(0, 1fr) 280px; }
+      .layout.chat-closed { grid-template-columns: 185px minmax(0, 1fr) !important; }
+      .dashboard-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .prompts-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .selection-layout { grid-template-columns: minmax(0, 1fr); }
     }
     @media (max-width: 900px) {
-      .layout { grid-template-columns: 180px minmax(0,1fr); }
-      .assistant { position: fixed; z-index: 22; right: 10px; bottom: 10px; top: 70px; width: min(330px,calc(100vw - 30px)); height: auto; margin: 0; box-shadow: 0 20px 65px rgba(0,0,0,.5); transform: translateX(calc(100% + 20px)); transition: transform .25s ease; }
+      .layout { grid-template-columns: 180px minmax(0, 1fr); }
+      .layout.chat-closed { grid-template-columns: 180px minmax(0, 1fr) !important; }
+      .assistant {
+        position: fixed;
+        z-index: 26;
+        right: 12px;
+        bottom: 12px;
+        top: 70px;
+        width: min(340px, calc(100vw - 24px));
+        height: auto;
+        margin: 0;
+        box-shadow: 0 20px 65px rgba(0,0,0,.5);
+        transform: translateX(calc(100% + 25px));
+        transition: transform .25s ease;
+      }
       .assistant.open { transform: translateX(0); }
-      .mobile-chat-toggle { display: grid; position: fixed; z-index: 20; right: 17px; bottom: 16px; width: 45px; height: 45px; place-items: center; border: 0; border-radius: 15px; color: white; background: linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow: 0 10px 26px rgba(119,89,232,.4); font-size: 18px; cursor: pointer; }
-      .quality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .mobile-chat-toggle {
+        display: grid;
+        position: fixed;
+        z-index: 22;
+        right: 17px;
+        bottom: 17px;
+        width: 46px;
+        height: 46px;
+        place-items: center;
+        border: 0;
+        border-radius: 15px;
+        color: white;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 10px 26px rgba(119,89,232,.4);
+        font-size: 19px;
+        cursor: pointer;
+      }
     }
     @media (max-width: 620px) {
       .topbar { height: 55px; grid-template-columns: 46px minmax(0,1fr) auto; padding-right: 8px; }
       .brand { grid-column: 2; grid-row: 1; padding: 0 4px; border: 0; }
-      .brand-mark { width: 30px; height: 30px; }
       .brand small { display: none; }
-      .mobile-nav-toggle { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); cursor: pointer; }
+      .mobile-nav-toggle {
+        grid-column: 1;
+        grid-row: 1;
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--card);
+        cursor: pointer;
+      }
       .global-search { display: none; }
-      .top-actions { grid-column: 3; grid-row: 1; gap: 1px; }
       .profile span:last-child, #notifications { display: none; }
       .layout { display: block; min-height: calc(100vh - 55px); }
-      .sidebar { position: fixed; z-index: 25; left: 0; top: 55px; bottom: 0; width: 240px; overflow-y: auto; transform: translateX(-105%); transition: transform .22s; box-shadow: 20px 0 50px rgba(0,0,0,.24); }
+      .sidebar {
+        position: fixed;
+        z-index: 28;
+        left: 0;
+        top: 55px;
+        bottom: 0;
+        width: 245px;
+        overflow-y: auto;
+        transform: translateX(-105%);
+        transition: transform .22s;
+        box-shadow: 20px 0 50px rgba(0,0,0,.28);
+      }
       .sidebar.open { transform: translateX(0); }
-      .workspace { padding: 11px 10px 70px; }
-      .workspace-head { align-items: flex-start; }
-      .dataset-status { max-width: 125px; padding: 6px; }
-      .dataset-status .status-loaded { display: none; }
-      .hero-bot { width: 38px; height: 38px; font-size: 22px; }
-      .stepper { padding-inline: 4px; }
-      .step-item span:last-child { font-size: 0; }
-      .step-item.active span:last-child { font-size: 7px; }
-      .step-item:not(:last-child)::after { width: calc(100% - 22px); left: calc(50% + 11px); }
-      .overview-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
-      .selection-layout { grid-template-columns: minmax(0,1fr); }
-      .quality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .dashboard-metrics-grid { grid-template-columns: 1fr; }
+      .prompts-category-grid { grid-template-columns: 1fr; }
+      .about-data-box { grid-template-columns: 1fr; }
       .aux-panel { grid-template-columns: 1fr; }
-      .workflow-actions .btn { min-width: 72px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
     }
   </style>
 </head>
 <body data-theme="dark">
   <input id="fileInput" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+
   <div class="app">
+    <!-- Header -->
     <header class="topbar">
       <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Open navigation">☰</button>
-      <div class="brand"><span class="brand-mark">✦</span><span><strong>AI Data Analyst Agent</strong><small>Turn your data into insights</small></span></div>
-      <label class="global-search"><span>⌕</span><input id="globalSearch" type="search" placeholder="Search columns or ask about your dataset…"><kbd>Ctrl K</kbd></label>
+      <div class="brand" id="brandHome">
+        <span class="brand-mark">✦</span>
+        <span>
+          <strong>AI Agent</strong>
+          <small>Automated Data Analysis & KDD</small>
+        </span>
+      </div>
+      <label class="global-search">
+        <span>⌕</span>
+        <input id="globalSearch" type="search" placeholder="Search columns or ask AI Agent a question…">
+        <kbd>Ctrl K</kbd>
+      </label>
       <div class="top-actions">
         <button class="top-icon" id="notifications" title="Notifications">♧</button>
         <button class="top-icon" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">☼</button>
-        <button class="profile" id="profileButton"><span class="avatar">DA</span><span>Analyst ⌄</span></button>
+        <button class="profile" id="profileButton">
+          <span class="avatar">AI</span>
+          <span>Analyst ⌄</span>
+        </button>
       </div>
     </header>
 
-    <div class="layout">
+    <div class="layout" id="mainLayout">
+      <!-- Sidebar -->
       <aside class="sidebar" id="sidebar">
         <nav class="nav-list" aria-label="Main navigation">
-          <button class="nav-item" data-page="home"><span class="nav-icon">⌂</span>Home</button>
-          <button class="nav-item" id="uploadNav"><span class="nav-icon">⇧</span>Upload Data</button>
-          <button class="nav-item active" data-page="kdd"><span class="nav-icon">▦</span>KDD Process<span class="nav-chevron">⌄</span></button>
-          <div class="step-nav" id="stepNav">
+          <button class="nav-item active" data-page="home"><span class="nav-icon">⌂</span>Home / Dashboard</button>
+          <button class="nav-item" data-page="upload"><span class="nav-icon">⇧</span>Upload Data</button>
+          <button class="nav-item" data-page="kdd"><span class="nav-icon">▦</span>KDD Process<span class="nav-chevron">⌄</span></button>
+          <div class="step-nav" id="stepNav" hidden>
             <button class="active" data-step="0"><span class="step-num">1</span>Data Selection</button>
             <button data-step="1"><span class="step-num">2</span>Data Preprocessing</button>
             <button data-step="2"><span class="step-num">3</span>Data Transformation</button>
@@ -340,22 +1254,31 @@
             <button data-step="4"><span class="step-num">5</span>Evaluation</button>
             <button data-step="5"><span class="step-num">6</span>Knowledge Presentation</button>
           </div>
-          <button class="nav-item" data-page="ml"><span class="nav-icon">◈</span>ML Lab</button>
           <button class="nav-item" data-page="visualizations"><span class="nav-icon">▥</span>Visualizations</button>
+          <button class="nav-item" data-page="ml"><span class="nav-icon">◈</span>ML Lab</button>
           <button class="nav-item" data-page="reports"><span class="nav-icon">▤</span>Reports</button>
           <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Settings</button>
         </nav>
 
         <section class="sidebar-card">
-          <div class="sidebar-label">Current dataset</div>
-          <div class="file-chip" style="margin-top:8px"><span class="file-icon">▤</span><span style="min-width:0"><strong id="sideFileName">No dataset loaded</strong><small id="sideFileMeta">Upload CSV or Excel</small></span><span id="sideLoaded" class="status-loaded" hidden>Ready</span></div>
-          <div class="sidebar-label" style="margin-top:9px">Dataset summary</div>
-          <div class="sidebar-metrics">
-            <div class="side-metric"><span>Total rows</span><strong id="sideRows">—</strong></div>
-            <div class="side-metric"><span>Total columns</span><strong id="sideColumns">—</strong></div>
-            <div class="side-metric"><span>Missing values</span><strong id="sideMissing">—</strong></div>
-            <div class="side-metric"><span>Duplicates</span><strong id="sideDuplicates">—</strong></div>
+          <div class="sidebar-label">Active Dataset</div>
+          <div class="file-chip" style="margin-top:8px">
+            <span class="file-icon">▤</span>
+            <span style="min-width:0">
+              <strong id="sideFileName">No dataset loaded</strong>
+              <small id="sideFileMeta">Upload CSV or Excel</small>
+            </span>
+            <span id="sideLoaded" class="status-loaded" hidden>Ready</span>
           </div>
+
+          <div class="sidebar-label" style="margin-top:9px">Summary</div>
+          <div class="sidebar-metrics">
+            <div class="side-metric"><span>Rows</span><strong id="sideRows">—</strong></div>
+            <div class="side-metric"><span>Columns</span><strong id="sideColumns">—</strong></div>
+            <div class="side-metric"><span>Missing</span><strong id="sideMissing">—</strong></div>
+            <div class="side-metric"><span>Quality</span><strong id="sideQuality">—</strong></div>
+          </div>
+
           <div class="sidebar-label" style="margin-top:9px">Data types</div>
           <div class="type-list">
             <div class="type-row"><i class="type-dot numeric"></i>Numeric<strong id="sideNumeric">0</strong></div>
@@ -363,95 +1286,431 @@
             <div class="type-row"><i class="type-dot date"></i>Date<strong id="sideDate">0</strong></div>
           </div>
         </section>
-        <button class="btn" id="sampleButton">▦ Load sample dataset</button>
-        <div class="sidebar-art"><p>Better data.<br>Better decisions. ♥</p><span class="bot-emoji">🤖</span></div>
+
+        <button class="btn" id="sampleButton">▦ Load Titanic Sample</button>
+        <div class="sidebar-art">
+          <p>Better data.<br>Better decisions. ♥</p>
+          <span class="bot-emoji">🤖</span>
+        </div>
       </aside>
 
-      <main class="workspace">
+      <!-- Main Workspace -->
+      <main class="workspace" id="workspaceMain">
+        <!-- Top Workspace Banner -->
         <div class="workspace-head">
-          <div class="title-line"><div class="hero-bot">🤖</div><div><h1 id="pageTitle">KDD Process — Data Selection</h1><p id="pageDescription">Choose your dataset and select columns for analysis.</p></div></div>
-          <div class="dataset-status"><span class="file-icon">▤</span><span class="status-text"><small>Dataset</small><strong id="headerFileName">Not loaded</strong><small id="headerFileMeta">CSV / Excel · up to 25 MB</small></span><span id="headerLoaded" class="status-loaded" hidden>Loaded</span><button class="top-icon" id="headerUpload" title="Upload dataset">⇧</button></div>
+          <div class="title-line">
+            <div class="hero-bot">🤖</div>
+            <div>
+              <h1 id="pageTitle">AI Agent Data Dashboard</h1>
+              <p id="pageDescription">Real-time dataset health, quality metrics, column taxonomy, and descriptive statistics.</p>
+            </div>
+          </div>
+          <div class="dataset-status">
+            <span class="file-icon">▤</span>
+            <span class="status-text">
+              <small>Dataset</small>
+              <strong id="headerFileName">Not loaded</strong>
+              <small id="headerFileMeta">CSV / Excel · up to 25 MB</small>
+            </span>
+            <span id="headerLoaded" class="status-loaded" hidden>Loaded</span>
+            <button class="top-icon" id="headerUpload" title="Upload dataset">⇧</button>
+          </div>
         </div>
 
-        <div class="stepper" id="stepper">
-          <button class="step-item active" data-step="0"><span class="step-circle">1</span><span>Data Selection</span></button>
-          <button class="step-item" data-step="1"><span class="step-circle">2</span><span>Data Preprocessing</span></button>
-          <button class="step-item" data-step="2"><span class="step-circle">3</span><span>Data Transformation</span></button>
-          <button class="step-item" data-step="3"><span class="step-circle">4</span><span>Data Mining</span></button>
-          <button class="step-item" data-step="4"><span class="step-circle">5</span><span>Evaluation</span></button>
-          <button class="step-item" data-step="5"><span class="step-circle">6</span><span>Knowledge Presentation</span></button>
-        </div>
-
-        <section class="selection-layout" id="selectionLayout">
-          <div class="stack">
-            <article class="card card-pad">
-              <div class="card-head"><div><div class="card-title"><span class="title-icon">▣</span><h2>1. Dataset Overview</h2></div><div class="card-subtitle" id="overviewCaption">Upload a file to calculate a data profile</div></div><button class="text-button" id="overviewUpload">View full data</button></div>
-              <div class="overview-metrics">
-                <div class="metric"><span class="metric-icon">▤</span><strong id="totalRows">—</strong><small>Total rows</small></div>
-                <div class="metric"><span class="metric-icon">⚙</span><strong id="totalColumns">—</strong><small>Total columns</small></div>
-                <div class="metric"><span class="metric-icon" style="color:var(--warning)">⚠</span><strong id="missingValues">—</strong><small>Missing values</small></div>
-                <div class="metric"><span class="metric-icon" style="color:var(--danger)">▣</span><strong id="duplicateRows">—</strong><small>Duplicates</small></div>
+        <!-- PAGE 1: HOME DASHBOARD -->
+        <section id="homeDashboard" class="stack">
+          <!-- 1. Top KPI Cards: Missing, Correctness/Quality %, Dimensions, Duplicates -->
+          <div class="dashboard-metrics-grid">
+            <!-- Quality & Correctness -->
+            <div class="metric-card">
+              <div class="metric-top">
+                <span class="metric-tag" id="dashQualityStatus">Quality Score</span>
+                <span class="metric-icon-badge" style="color:var(--success);background:rgba(66,201,149,.14)">✓</span>
               </div>
-            </article>
-
-            <article class="card card-pad">
-              <div class="card-head"><div><div class="card-title"><span class="title-icon">▤</span><h2>2. Dataset Preview</h2></div><div class="card-subtitle" id="previewCaption">Waiting for a dataset</div></div><button class="text-button" id="viewFullData">View full data</button></div>
-              <div class="table-scroll" id="previewTableWrap"><table><thead id="previewHead"><tr><th>Column</th></tr></thead><tbody id="previewBody"><tr><td>Load a dataset to inspect the first rows.</td></tr></tbody></table></div>
-              <div class="preview-footer"><span id="previewCount">Showing 0 rows</span><div class="page-controls"><button aria-label="Previous page">‹</button><button class="active">1</button><button aria-label="Next page">›</button></div></div>
-            </article>
-
-            <article class="card card-pad">
-              <div class="card-head"><div><div class="card-title"><span class="title-icon">▣</span><h2>3. Data Quality</h2></div><div class="card-subtitle">Completeness, duplicates, schema, and overall quality</div></div><span id="qualityStatus" class="status-loaded">Waiting</span></div>
-              <div class="quality-grid">
-                <div class="quality-item warn"><span>Missing values</span><strong id="qualityMissing">—</strong><div class="bar"><i id="missingBar" style="--bar:0%"></i></div></div>
-                <div class="quality-item good"><span>Duplicates</span><strong id="qualityDuplicates">—</strong><div class="bar"><i id="duplicateBar" style="--bar:0%"></i></div></div>
-                <div class="quality-item good"><span>Data types</span><strong id="qualityTypes">—</strong><div class="bar"><i id="typesBar" style="--bar:0%"></i></div></div>
-                <div class="quality-item good"><span>Status</span><strong><i class="online-dot"></i><span id="qualityScore">—</span></strong><div class="bar"><i id="qualityBar" style="--bar:0%"></i></div></div>
+              <div class="metric-value" id="dashQualityScore">—</div>
+              <div class="metric-label">Data Correctness & Quality</div>
+              <div class="metric-sub" id="dashCompletenessSub">Calculated from completeness & uniqueness</div>
+              <div class="metric-progress">
+                <div class="metric-progress-fill" id="dashQualityBar" style="width:0%"></div>
               </div>
-            </article>
+            </div>
 
-            <article class="card card-pad" id="numericStatsCard" hidden>
-              <div class="card-head"><div><div class="card-title"><span class="title-icon">∑</span><h2>4. Numeric statistics</h2></div><div class="card-subtitle">Descriptive statistics calculated from the uploaded data</div></div></div>
-              <div class="table-scroll"><table><thead id="numericStatsHead"></thead><tbody id="numericStatsBody"></tbody></table></div>
-            </article>
+            <!-- Missing Values -->
+            <div class="metric-card">
+              <div class="metric-top">
+                <span class="metric-tag" style="color:var(--warning)">Missingness</span>
+                <span class="metric-icon-badge" style="color:var(--warning);background:rgba(243,201,107,.14)">⚠</span>
+              </div>
+              <div class="metric-value" id="dashMissingCount">—</div>
+              <div class="metric-label">Missing Data Cells</div>
+              <div class="metric-sub" id="dashMissingSub">0.0% of total cells</div>
+              <div class="metric-progress">
+                <div class="metric-progress-fill" id="dashMissingBar" style="width:0%;background:linear-gradient(90deg,#e8a735,var(--warning))"></div>
+              </div>
+            </div>
+
+            <!-- Dimensions -->
+            <div class="metric-card">
+              <div class="metric-top">
+                <span class="metric-tag">Dimensions</span>
+                <span class="metric-icon-badge">▦</span>
+              </div>
+              <div class="metric-value" id="dashDimensions">—</div>
+              <div class="metric-label">Rows & Columns</div>
+              <div class="metric-sub" id="dashMemorySub">Memory usage: —</div>
+              <div class="metric-progress">
+                <div class="metric-progress-fill" style="width:100%"></div>
+              </div>
+            </div>
+
+            <!-- Duplicates -->
+            <div class="metric-card">
+              <div class="metric-top">
+                <span class="metric-tag">Uniqueness</span>
+                <span class="metric-icon-badge" style="color:var(--accent)">▣</span>
+              </div>
+              <div class="metric-value" id="dashDuplicateCount">—</div>
+              <div class="metric-label">Duplicate Rows</div>
+              <div class="metric-sub" id="dashDuplicateSub">100% unique records</div>
+              <div class="metric-progress">
+                <div class="metric-progress-fill" id="dashDuplicateBar" style="width:100%"></div>
+              </div>
+            </div>
           </div>
 
-          <div class="stack">
-            <article class="card card-pad" style="flex:1">
-              <div class="card-head"><div><div class="card-title"><span class="title-icon">⚙</span><h2>Column Selection</h2></div><div class="card-subtitle" id="selectionSummary">Choose columns to include in analysis</div></div></div>
-              <div class="selection-tools"><label class="input-wrap" style="flex:1"><span>⌕</span><input id="columnSearch" type="search" placeholder="Search columns…"></label><label class="select-all"><input id="selectAll" type="checkbox"> Select all</label></div>
-              <div class="table-scroll column-table"><table><thead><tr><th class="column-check">Include</th><th>Column name</th><th>Data type</th><th>Preview</th></tr></thead><tbody id="columnBody"><tr><td colspan="4" style="text-align:center;padding:22px">Upload a dataset to select columns.</td></tr></tbody></table></div>
-              <div class="preview-footer"><span class="selection-count" id="selectedCount">0 columns selected</span><span id="searchCount"></span></div>
-              <div class="action-row"><button class="btn" id="modifyButton">✎ Modify data</button><button class="btn" id="downloadButton">⇩ Download CSV</button></div>
-            </article>
-            <div class="workflow-actions"><button class="btn ghost" id="backButton" disabled>← Back</button><button class="btn primary" id="nextButton">Next →</button></div>
-          </div>
+          <!-- 2. About Data Narrative Card -->
+          <article class="card card-pad">
+            <div class="card-head">
+              <div>
+                <div class="card-title">
+                  <span class="title-icon">📖</span>
+                  <h2>About This Dataset</h2>
+                </div>
+                <div class="card-subtitle" id="aboutDatasetSubtitle">Dataset overview and detected characteristics</div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn" id="dashModifyBtn">✎ Modify Data</button>
+                <button class="btn primary" id="dashDownloadBtn">⇩ Download CSV</button>
+              </div>
+            </div>
+            <div class="about-data-box">
+              <div class="about-narrative">
+                <h3>Dataset Narrative</h3>
+                <p id="aboutDataSummary">Load or upload a dataset to view automated profiling and narrative summary.</p>
+                <div class="badge-cloud" id="aboutDataBadges"></div>
+              </div>
+              <div class="about-narrative">
+                <h3>Detected Column Distribution</h3>
+                <div class="sidebar-metrics" style="padding-top:4px" id="aboutTypeBreakdown">
+                  <div class="side-metric"><span>Numerical Features</span><strong id="aboutNumCount">—</strong></div>
+                  <div class="side-metric"><span>Categorical Features</span><strong id="aboutCatCount">—</strong></div>
+                  <div class="side-metric"><span>Datetime Features</span><strong id="aboutDateCount">—</strong></div>
+                  <div class="side-metric"><span>Unique Identifiers</span><strong id="aboutIdCount">—</strong></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- 3. All Columns and Their Types Table -->
+          <article class="card card-pad">
+            <div class="card-head">
+              <div>
+                <div class="card-title">
+                  <span class="title-icon">📑</span>
+                  <h2>All Columns & Data Types</h2>
+                </div>
+                <div class="card-subtitle" id="dashColSubtitle">Complete catalog of features, types, missing counts, and sample values</div>
+              </div>
+              <div class="input-wrap" style="width:230px">
+                <span>⌕</span>
+                <input id="dashColumnSearch" type="search" placeholder="Filter columns…">
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Column Name</th>
+                    <th>Data Type</th>
+                    <th>Native dtype</th>
+                    <th>Non-Null Count</th>
+                    <th>Missing Count (%)</th>
+                    <th>Unique Values</th>
+                    <th>Sample Value Preview</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="dashColumnsBody">
+                  <tr><td colspan="9" style="text-align:center;padding:20px">No dataset loaded. Upload a file or load the sample dataset.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- 4. Descriptive Statistics (Numeric Data) Table -->
+          <article class="card card-pad" id="dashNumericStatsCard">
+            <div class="card-head">
+              <div>
+                <div class="card-title">
+                  <span class="title-icon">🔢</span>
+                  <h2>Descriptive Statistics (Numeric Data)</h2>
+                </div>
+                <div class="card-subtitle">Count, Mean, Std, Min, 25%, 50% (Median), 75%, Max, IQR & Skewness</div>
+              </div>
+              <button class="text-button" data-ask="Calculate mean, median, and standard deviation for numeric columns">Ask AI to explain</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead id="dashNumericStatsHead"></thead>
+                <tbody id="dashNumericStatsBody">
+                  <tr><td style="text-align:center;padding:18px">Upload a dataset with numeric columns to inspect statistics.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- 5. All Basic Prompts Section (Categorized Grid) -->
+          <section class="prompts-studio">
+            <div class="prompts-studio-head">
+              <h2><span>✦</span> AI Agent 1-Click Prompt Studio</h2>
+              <span class="status-loaded">Instant Execution</span>
+            </div>
+            <div class="prompts-category-grid">
+              <!-- Category 1: Overview -->
+              <div class="prompt-cat-card">
+                <div class="prompt-cat-title"><span>📋</span> Dataset Overview</div>
+                <button class="prompt-chip" data-ask="Give me a complete overview of the dataset.">Overview of the dataset</button>
+                <button class="prompt-chip" data-ask="How many rows and columns are present?">How many rows and columns?</button>
+                <button class="prompt-chip" data-ask="Show the first 5 records.">Show first 5 records</button>
+                <button class="prompt-chip" data-ask="Show the dataset shape and memory usage.">Shape and memory usage</button>
+                <button class="prompt-chip" data-ask="Identify constant columns and unique values.">Constant & unique columns</button>
+              </div>
+
+              <!-- Category 2: Data Quality -->
+              <div class="prompt-cat-card">
+                <div class="prompt-cat-title"><span>🔍</span> Data Quality & Missing Values</div>
+                <button class="prompt-chip" data-ask="Show missing values in every column.">Missing values in each column</button>
+                <button class="prompt-chip" data-ask="Calculate missing-value percentages for all columns.">Missing value percentages</button>
+                <button class="prompt-chip" data-ask="Which column has the highest percentage of missing values?">Highest missing percentage</button>
+                <button class="prompt-chip" data-ask="Count duplicate rows.">Count duplicate rows</button>
+                <button class="prompt-chip" data-ask="Generate a complete data quality report.">Complete data quality report</button>
+              </div>
+
+              <!-- Category 3: Statistics -->
+              <div class="prompt-cat-card">
+                <div class="prompt-cat-title"><span>📊</span> Statistical Insights</div>
+                <button class="prompt-chip" data-ask="Calculate mean, median, and standard deviation for numeric columns.">Mean, median & std</button>
+                <button class="prompt-chip" data-ask="Show five-number summary for numeric columns.">Five-number summary</button>
+                <button class="prompt-chip" data-ask="Calculate correlation matrix.">Correlation matrix</button>
+                <button class="prompt-chip" data-ask="Detect outliers in numeric columns.">Detect outliers</button>
+                <button class="prompt-chip" data-ask="Show frequency counts for categorical columns.">Categorical frequencies</button>
+              </div>
+
+              <!-- Category 4: Visualizations -->
+              <div class="prompt-cat-card">
+                <div class="prompt-cat-title"><span>📈</span> Charts & Visualizations</div>
+                <button class="prompt-chip" data-ask="Create pie chart for Embarked.">Pie chart of Embarked</button>
+                <button class="prompt-chip" data-ask="Show bar chart of Sex.">Bar chart of Sex</button>
+                <button class="prompt-chip" data-ask="Plot histogram for Age.">Histogram for Age</button>
+                <button class="prompt-chip" data-ask="Plot Age vs Fare scatter.">Scatter: Age vs Fare</button>
+                <button class="prompt-chip" data-ask="Show boxplot for Age.">Boxplot for Age</button>
+              </div>
+
+              <!-- Category 5: Machine Learning -->
+              <div class="prompt-cat-card">
+                <div class="prompt-cat-title"><span>🤖</span> Machine Learning</div>
+                <button class="prompt-chip" data-ask="Train Random Forest to predict Survived.">Train Random Forest (Survived)</button>
+                <button class="prompt-chip" data-ask="Cluster data into 3 groups using KMeans.">KMeans Clustering (k=3)</button>
+                <button class="prompt-chip" data-ask="Run PCA with 2 components.">PCA (2 Components)</button>
+                <button class="prompt-chip" data-ask="Identify feature importance for predicting Survived.">Feature Importance</button>
+                <button class="prompt-chip" data-ask="Show model evaluation metrics.">Model evaluation metrics</button>
+              </div>
+
+              <!-- Category 6: Cleanup & Export -->
+              <div class="prompt-cat-card">
+                <div class="prompt-cat-title"><span>🧹</span> Data Cleaning & Export</div>
+                <button class="prompt-chip" data-ask="Fill missing values in Age with median.">Fill Age with median</button>
+                <button class="prompt-chip" data-ask="Fill missing values in Embarked with mode.">Fill Embarked with mode</button>
+                <button class="prompt-chip" data-ask="Remove duplicate rows.">Remove duplicates</button>
+                <button class="prompt-chip" data-ask="Drop rows with missing values.">Drop missing rows</button>
+                <button class="prompt-chip" id="chipDownloadCsv">⇩ Download Modified CSV</button>
+              </div>
+            </div>
+          </section>
         </section>
-        <section id="stepContent" class="aux-panel" hidden></section>
-        <section id="sectionContent" hidden></section>
-        <div class="tip-bar"><span class="tip-bulb">✦</span><span><strong id="tipTitle">Quick Tip</strong><small id="tipText">Choose the most relevant columns for better and faster analysis.</small></span><span style="flex:1"></span><span class="tip-bulb">♧</span><span><strong>Need help?</strong><small>Ask the AI agent anything about this dataset.</small></span><button class="text-button" id="askAgent">Ask AI</button></div>
+
+        <!-- PAGE 2: UPLOAD DATA -->
+        <section id="uploadView" class="stack" hidden>
+          <article class="card card-pad">
+            <div class="card-head">
+              <div>
+                <div class="card-title"><span class="title-icon">⇧</span><h2>Upload New Dataset</h2></div>
+                <div class="card-subtitle">Support for CSV, Excel (.xlsx, .xls) up to 25 MB</div>
+              </div>
+            </div>
+            <div class="dropzone-box" id="dropZone">
+              <span class="dropzone-icon">📁</span>
+              <h3 style="margin:0 0 5px;font-size:14px">Drag and drop your dataset here</h3>
+              <p style="margin:0 0 15px;color:var(--quiet);font-size:10px">Supports comma-separated or tab-separated CSV, XLSX, and XLS</p>
+              <button class="btn primary" id="dropBrowseBtn">Browse Files</button>
+            </div>
+            <div style="display:flex;justify-content:center;margin-top:15px">
+              <button class="btn" id="uploadSampleBtn">▦ Or Load Titanic Sample Dataset</button>
+            </div>
+          </article>
+        </section>
+
+        <!-- PAGE 3: KDD PROCESS -->
+        <section id="kddView" class="stack" hidden>
+          <div class="stepper" id="stepper">
+            <button class="step-item active" data-step="0"><span class="step-circle">1</span><span>Data Selection</span></button>
+            <button class="step-item" data-step="1"><span class="step-circle">2</span><span>Data Preprocessing</span></button>
+            <button class="step-item" data-step="2"><span class="step-circle">3</span><span>Data Transformation</span></button>
+            <button class="step-item" data-step="3"><span class="step-circle">4</span><span>Data Mining</span></button>
+            <button class="step-item" data-step="4"><span class="step-circle">5</span><span>Evaluation</span></button>
+            <button class="step-item" data-step="5"><span class="step-circle">6</span><span>Knowledge Presentation</span></button>
+          </div>
+
+          <div class="selection-layout" id="selectionLayout">
+            <div class="stack">
+              <article class="card card-pad">
+                <div class="card-head">
+                  <div>
+                    <div class="card-title"><span class="title-icon">▤</span><h2>Data Preview</h2></div>
+                    <div class="card-subtitle" id="previewCaption">Waiting for a dataset</div>
+                  </div>
+                  <button class="text-button" id="viewFullData">View more rows</button>
+                </div>
+                <div class="table-scroll" id="previewTableWrap">
+                  <table><thead id="previewHead"><tr><th>Column</th></tr></thead><tbody id="previewBody"><tr><td>Load a dataset to inspect rows.</td></tr></tbody></table>
+                </div>
+                <div class="preview-footer"><span id="previewCount">Showing 0 rows</span></div>
+              </article>
+            </div>
+
+            <div class="stack">
+              <article class="card card-pad" style="flex:1">
+                <div class="card-head">
+                  <div>
+                    <div class="card-title"><span class="title-icon">⚙</span><h2>Column Selection</h2></div>
+                    <div class="card-subtitle" id="selectionSummary">Choose columns to include in analysis</div>
+                  </div>
+                </div>
+                <div class="selection-tools">
+                  <label class="input-wrap" style="flex:1"><span>⌕</span><input id="columnSearch" type="search" placeholder="Search columns…"></label>
+                  <label class="select-all"><input id="selectAll" type="checkbox"> Select all</label>
+                </div>
+                <div class="table-scroll column-table">
+                  <table>
+                    <thead><tr><th class="column-check">Include</th><th>Column name</th><th>Data type</th><th>Preview</th></tr></thead>
+                    <tbody id="columnBody"><tr><td colspan="4" style="text-align:center;padding:20px">Upload a dataset to select columns.</td></tr></tbody>
+                  </table>
+                </div>
+                <div class="preview-footer"><span class="selection-count" id="selectedCount">0 columns selected</span><span id="searchCount"></span></div>
+                <div class="action-row">
+                  <button class="btn" id="modifyButton">✎ Modify data</button>
+                  <button class="btn" id="downloadButton">⇩ Download CSV</button>
+                </div>
+              </article>
+              <div class="workflow-actions">
+                <button class="btn ghost" id="backButton" disabled>← Back</button>
+                <button class="btn primary" id="nextButton">Next →</button>
+              </div>
+            </div>
+          </div>
+          <section id="stepContent" class="aux-panel" hidden></section>
+        </section>
+
+        <!-- PAGE 4: AUXILIARY VIEWS (Visualizations, ML Lab, Reports, Settings) -->
+        <section id="auxiliaryView" hidden></section>
+
+        <!-- Tip Bar -->
+        <div class="tip-bar">
+          <span class="tip-bulb">✦</span>
+          <span>
+            <strong id="tipTitle">Quick Tip</strong>
+            <small id="tipText">Ask the AI Agent in natural English to calculate stats, build models, or generate charts.</small>
+          </span>
+          <span style="flex:1"></span>
+          <span class="tip-bulb">🤖</span>
+          <span><strong>AI Agent Copilot</strong><small>Powered by Ollama (llama3.2)</small></span>
+          <button class="text-button" id="askAgent">Ask AI</button>
+        </div>
       </main>
 
+      <!-- Right Column: AI Assistant Chatbot Panel -->
       <aside class="assistant" id="assistantPanel">
-        <div class="assistant-head"><span class="assistant-avatar">🤖</span><span><strong>AI Agent</strong><small><i class="online-dot" id="backendDot"></i><span id="assistantStatus">Connecting…</span></small></span><span class="head-spacer"></span><div class="chat-toolbar"><button id="clearChat" title="Clear chat">↻</button><button id="expandChat" title="Expand assistant">⤢</button><button class="mobile-close-chat" id="closeChat" title="Close assistant">×</button></div></div>
-        <div class="chat-messages" id="chatMessages"><div class="message"><small class="message-meta">ADAA · now</small><div class="bubble" id="welcomeText">Hello! I’m your AI Data Analyst Agent. Upload a dataset and I’ll help you explore its columns, quality, and patterns.</div></div></div>
+        <div class="assistant-head">
+          <span class="assistant-avatar">🤖</span>
+          <span>
+            <strong>AI Agent</strong>
+            <small><i class="online-dot" id="backendDot"></i><span id="assistantStatus">Connecting…</span></small>
+          </span>
+          <span class="head-spacer"></span>
+          <div class="chat-toolbar">
+            <button id="clearChat" title="Clear chat">↻</button>
+            <button id="expandChat" title="Expand assistant">⤢</button>
+            <button class="close-btn" id="closeChat" title="Close AI Agent panel" aria-label="Close AI Agent">×</button>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="message">
+            <small class="message-meta">AI Agent · now</small>
+            <div class="bubble" id="welcomeText">Hello! I’m your AI Agent data analyst. Load or upload a dataset, and I’ll help you explore missing values, statistics, data quality, charts, and machine learning!</div>
+          </div>
+        </div>
+
         <div class="analysis-output" id="analysisOutput"></div>
-        <div class="suggestions"><div class="suggestions-label">✦ Try asking:</div><div class="suggestion-list" id="suggestionList"></div></div>
-        <form class="chat-compose" id="chatForm"><input id="questionInput" placeholder="Type your question here…" autocomplete="off" aria-label="Ask a question about your data"><button class="send-btn" type="submit" aria-label="Send question">➤</button></form>
+
+        <div class="suggestions">
+          <div class="suggestions-label">✦ Try asking:</div>
+          <div class="suggestion-list" id="suggestionList"></div>
+        </div>
+
+        <form class="chat-compose" id="chatForm">
+          <input id="questionInput" placeholder="Ask AI Agent about this dataset…" autocomplete="off" aria-label="Ask a question about your data">
+          <button class="send-btn" type="submit" aria-label="Send question">➤</button>
+        </form>
       </aside>
     </div>
   </div>
 
-  <button class="mobile-chat-toggle" id="mobileChatToggle" aria-label="Open AI assistant">✦</button>
+  <!-- Floating Re-open AI Agent Button (appears when chat is closed) -->
+  <button class="floating-chat-btn" id="openChatBtn" title="Open AI Agent">
+    <span>🤖</span>
+    <span>AI Agent</span>
+    <span class="online-dot"></span>
+  </button>
+
+  <!-- Mobile Chat Toggle Button -->
+  <button class="mobile-chat-toggle" id="mobileChatToggle" aria-label="Open AI assistant">🤖</button>
+
+  <!-- Modify Data Modal -->
   <div class="modal-backdrop" id="modifyModal" hidden>
     <form class="modal" id="modifyForm">
-      <h2>Modify dataset</h2><p>Choose a supported cleanup operation. app.py will apply it and refresh the profile.</p>
-      <label>Operation<select id="modifyOperation"><option value="mean">Fill missing values with mean</option><option value="median">Fill missing values with median</option><option value="mode">Fill missing values with mode</option><option value="constant">Fill missing values with a value</option><option value="duplicates">Remove duplicate rows</option><option value="dropna">Drop rows with missing values</option></select></label>
+      <h2>Modify dataset</h2>
+      <p>Choose a supported data cleanup operation. The AI Agent will apply it and refresh the profile.</p>
+      <label>Operation
+        <select id="modifyOperation">
+          <option value="mean">Fill missing values with mean</option>
+          <option value="median">Fill missing values with median</option>
+          <option value="mode">Fill missing values with mode</option>
+          <option value="constant">Fill missing values with a custom value</option>
+          <option value="duplicates">Remove duplicate rows</option>
+          <option value="dropna">Drop rows with missing values</option>
+        </select>
+      </label>
       <label id="modifyColumnLabel">Column<select id="modifyColumn"></select></label>
       <label id="modifyValueLabel" hidden>Replacement value<input id="modifyValue" placeholder="Value to use"></label>
-      <div class="modal-actions"><button class="btn ghost" type="button" id="cancelModify">Cancel</button><button class="btn primary" type="submit">Apply with app.py</button></div>
+      <div class="modal-actions">
+        <button class="btn ghost" type="button" id="cancelModify">Cancel</button>
+        <button class="btn primary" type="submit">Apply Modification</button>
+      </div>
     </form>
   </div>
+
   <div id="toast" class="toast" role="status"></div>
 
   <script>
@@ -460,318 +1719,759 @@
       let dataset = null;
       let selectedColumns = new Set();
       let currentStep = 0;
-      let currentPage = 'kdd';
+      let currentPage = 'home';
       let expandedPreview = false;
       let toastTimer;
       let llmConnected = false;
+      let isChatClosed = false;
+
       const steps = ['Data Selection','Data Preprocessing','Data Transformation','Data Mining','Evaluation','Knowledge Presentation'];
       const tips = [
-        'Choose the most relevant columns for better and faster analysis.',
-        'Inspect missing values and duplicates before transforming the data.',
-        'Keep an unchanged copy of the original data before applying transformations.',
-        'Use the assistant to compare patterns and run supported analysis tasks.',
-        'Review metrics with the question and dataset context before drawing conclusions.',
-        'Export your cleaned dataset and keep the generated findings together.'
+        'Select relevant columns for focused and fast data analysis.',
+        'Review missingness and duplicates before imputing values.',
+        'Normalize or standardize numeric features before clustering or PCA.',
+        'Ask the AI Agent to identify key drivers and feature importance.',
+        'Evaluate accuracy, precision, recall, and ROC metrics.',
+        'Export your cleaned dataset with the download button anytime.'
       ];
+
       const promptsByStep = [
-        ['Show me a summary of this dataset','Which columns have missing values?','Create a bar chart'],
-        ['Check for missing values','Remove duplicate rows','Detect outliers in numeric columns','Show data quality report'],
-        ['Normalize numeric columns','Standardize the selected column','One hot encode a category'],
-        ['Show the correlation matrix','Cluster data into 3 groups using KMeans','Train a classification model'],
-        ['Show model evaluation metrics','Explain the strongest correlations','Summarize data quality'],
-        ['Summarize the main findings','Create a chart of the key results','Download modified data']
+        ['Give me a complete overview of the dataset.','Which columns have missing values?','Show the first 5 records.'],
+        ['Show missing values in every column.','Remove duplicate rows.','Fill missing values in Age with median.','Show data quality report.'],
+        ['Normalize numeric columns.','Standardize numeric columns.','Show correlation matrix.'],
+        ['Train Random Forest to predict Survived.','Cluster data into 3 groups using KMeans.','Run PCA with 2 components.'],
+        ['Show model evaluation metrics.','Identify feature importance for predicting Survived.','Explain the strongest correlations.'],
+        ['Summarize the main findings.','Create pie chart for Embarked.','Download modified data.']
       ];
-      const savedTheme = localStorage.getItem('adaa-theme');
-      if (savedTheme === 'light') document.body.dataset.theme = 'light';
+
+      // Theme
+      const savedTheme = localStorage.getItem('ai-agent-theme') || localStorage.getItem('adaa-theme') || 'dark';
+      document.body.dataset.theme = savedTheme;
       updateThemeButton();
 
       function escapeHTML(value) {
         return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       }
+
       function toast(message) {
-        $('toast').textContent = message; $('toast').classList.add('show'); clearTimeout(toastTimer);
+        $('toast').textContent = message;
+        $('toast').classList.add('show');
+        clearTimeout(toastTimer);
         toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2800);
       }
+
       function formatNumber(value) { return Number(value || 0).toLocaleString(undefined,{maximumFractionDigits:2}); }
       function formatBytes(value) { if (!value) return '—'; return value < 1024 ? value+' B' : (value/1024).toFixed(1)+' KB'; }
+
       async function apiRequest(url, options) {
         let response;
-        try { response = await fetch(url,options || {}); }
-        catch (_) { throw new Error('Cannot connect to app.py. Start it with python app.py and open http://127.0.0.1:7860/.'); }
+        try { response = await fetch(url, options || {}); }
+        catch (_) { throw new Error('Cannot connect to app.py backend. Ensure server is running at http://127.0.0.1:7860/.'); }
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.detail || ('Request failed ('+response.status+')'));
+        if (!response.ok) throw new Error(data.detail || ('Request failed (' + response.status + ')'));
         return data;
       }
-      function updateThemeButton() { $('themeToggle').textContent = document.body.dataset.theme === 'dark' ? '☼' : '☾'; }
-      $('themeToggle').addEventListener('click',() => { document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('adaa-theme',document.body.dataset.theme); updateThemeButton(); });
-      $('notifications').addEventListener('click',() => toast(dataset ? 'Dataset profile is up to date.' : 'Upload a dataset to get started.'));
-      $('profileButton').addEventListener('click',() => toast('Local analyst workspace'));
-      $('mobileNavToggle').addEventListener('click',() => $('sidebar').classList.toggle('open'));
-      $('mobileChatToggle').addEventListener('click',() => $('assistantPanel').classList.toggle('open'));
-      $('closeChat').addEventListener('click',() => $('assistantPanel').classList.remove('open'));
-      $('expandChat').addEventListener('click',() => $('assistantPanel').classList.toggle('expanded'));
-      $('askAgent').addEventListener('click',() => $('questionInput').focus());
-      $('globalSearch').addEventListener('input',event => { $('columnSearch').value=event.target.value; renderColumns(); });
-      document.addEventListener('keydown',event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase()==='k') { event.preventDefault(); $('globalSearch').focus(); } });
 
-      ['headerUpload','uploadNav','overviewUpload'].forEach(id => $(id).addEventListener('click',() => $('fileInput').click()));
-      $('fileInput').addEventListener('change',async event => {
-        const file = event.target.files && event.target.files[0]; if (!file) return;
-        try {
-          const payload = await apiRequest('/api/datasets?filename='+encodeURIComponent(file.name),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});
-          setDataset(payload); toast('Dataset uploaded and profiled by app.py');
-        } catch(error) { toast(error.message || 'Could not load this file'); }
-        event.target.value='';
-      });
-      $('sampleButton').addEventListener('click',loadSample);
-      async function loadSample() {
-        try { setDataset(await apiRequest('/api/datasets/sample',{method:'POST'})); toast('Sample dataset loaded from app.py'); }
-        catch(error) { toast(error.message || 'Could not load the sample dataset'); }
+      function updateThemeButton() {
+        $('themeToggle').textContent = document.body.dataset.theme === 'dark' ? '☼' : '☾';
       }
+      $('themeToggle').addEventListener('click', () => {
+        document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('ai-agent-theme', document.body.dataset.theme);
+        updateThemeButton();
+      });
+
+      // Close & Open Chatbot logic
+      function closeChat() {
+        isChatClosed = true;
+        $('assistantPanel').classList.add('closed');
+        $('assistantPanel').classList.remove('open');
+        $('mainLayout').classList.add('chat-closed');
+        $('openChatBtn').classList.add('visible');
+      }
+
+      function openChat() {
+        isChatClosed = false;
+        $('assistantPanel').classList.remove('closed');
+        $('mainLayout').classList.remove('chat-closed');
+        $('openChatBtn').classList.remove('visible');
+        if (window.innerWidth <= 900) {
+          $('assistantPanel').classList.add('open');
+        }
+      }
+
+      $('closeChat').addEventListener('click', closeChat);
+      $('openChatBtn').addEventListener('click', openChat);
+      $('mobileChatToggle').addEventListener('click', () => {
+        if ($('assistantPanel').classList.contains('open')) closeChat();
+        else openChat();
+      });
+      $('expandChat').addEventListener('click', () => $('assistantPanel').classList.toggle('expanded'));
+      $('askAgent').addEventListener('click', () => { openChat(); $('questionInput').focus(); });
+
+      $('notifications').addEventListener('click', () => toast(dataset ? 'Dataset profile is up to date.' : 'Upload a dataset to begin.'));
+      $('profileButton').addEventListener('click', () => toast('AI Agent Analyst Workspace'));
+      $('mobileNavToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
+      $('brandHome').addEventListener('click', () => setPage('home'));
+
+      // Global search & keyboard shortcut
+      $('globalSearch').addEventListener('input', event => {
+        const query = event.target.value;
+        if (currentPage === 'home') {
+          $('dashColumnSearch').value = query;
+          renderHomeColumns();
+        } else if (currentPage === 'kdd') {
+          $('columnSearch').value = query;
+          renderColumns();
+        }
+      });
+      document.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault();
+          $('globalSearch').focus();
+        }
+      });
+
+      // Dataset Loading & Uploading
+      ['headerUpload','dropBrowseBtn'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('click', () => $('fileInput').click());
+      });
+
+      $('fileInput').addEventListener('change', async event => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          const payload = await apiRequest('/api/datasets?filename=' + encodeURIComponent(file.name), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: file
+          });
+          setDataset(payload);
+          toast('Dataset uploaded and analyzed by AI Agent.');
+          setPage('home');
+        } catch(error) {
+          toast(error.message || 'Could not load this file.');
+        }
+        event.target.value = '';
+      });
+
+      // Drag & drop on dropzone
+      const dropZone = $('dropZone');
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(name => {
+          dropZone.addEventListener(name, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+          dropZone.addEventListener(name, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        });
+        dropZone.addEventListener('drop', async e => {
+          const file = e.dataTransfer.files && e.dataTransfer.files[0];
+          if (!file) return;
+          try {
+            const payload = await apiRequest('/api/datasets?filename=' + encodeURIComponent(file.name), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/octet-stream' },
+              body: file
+            });
+            setDataset(payload);
+            toast('Dataset uploaded and analyzed by AI Agent.');
+            setPage('home');
+          } catch(error) {
+            toast(error.message || 'Could not load this file.');
+          }
+        });
+      }
+
+      ['sampleButton','uploadSampleBtn'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('click', loadSample);
+      });
+
+      async function loadSample() {
+        try {
+          const data = await apiRequest('/api/datasets/sample', { method: 'POST' });
+          setDataset(data);
+          toast('Titanic sample dataset loaded successfully.');
+          setPage('home');
+        } catch(error) {
+          toast(error.message || 'Could not load the sample dataset.');
+        }
+      }
+
       function setDataset(data) {
         dataset = data;
-        selectedColumns = new Set(data.columns.map(column => column.name));
+        selectedColumns = new Set(data.columns.map(col => col.name));
         expandedPreview = false;
-        updateDatasetUI(); renderColumns(); renderPreview(); updateSuggestions();
-        $('headerLoaded').hidden=false; $('sideLoaded').hidden=false;
-        $('welcomeText').textContent='I have loaded '+data.name+' with '+formatNumber(data.row_count)+' rows and '+data.column_count+' columns. Ask about missing values, statistics, correlations, charts, or data cleaning.';
-        $('overviewCaption').textContent=data.name+' · '+formatBytes(data.file_size)+' · '+(data.memory_usage || '');
-        $('previewCaption').textContent='First '+Math.min(data.preview_rows.length,data.row_count)+' of '+formatNumber(data.row_count)+' records';
-        $('qualityStatus').textContent=data.quality_score >= 90 ? 'Good' : data.quality_score >= 70 ? 'Review' : 'Needs work';
-        $('qualityScore').textContent=formatNumber(data.quality_score)+'%';
-        const missingRate = data.missing_percentage || 0;
-        $('qualityMissing').textContent=formatNumber(data.missing_count)+' ('+missingRate.toFixed(2)+'%)';
-        $('missingBar').style.setProperty('--bar',Math.max(3,Math.min(100,missingRate))+'%');
-        const duplicateRate = data.row_count ? 100*data.duplicate_count/data.row_count : 0;
-        $('qualityDuplicates').textContent=formatNumber(data.duplicate_count)+' ('+duplicateRate.toFixed(2)+'%)';
-        $('duplicateBar').style.setProperty('--bar',Math.max(3,Math.min(100,duplicateRate))+'%');
-        $('qualityTypes').textContent=data.column_count+'/'+data.column_count+' detected';
-        $('typesBar').style.setProperty('--bar','100%'); $('qualityBar').style.setProperty('--bar',data.quality_score+'%');
-        $('qualityStatus').className='status-loaded';
-        updateSidebarSummary();
-        renderNumericStats();
+
+        $('headerLoaded').hidden = false;
+        $('sideLoaded').hidden = false;
+        $('welcomeText').textContent = 'Loaded ' + data.name + ' with ' + formatNumber(data.row_count) + ' rows and ' + data.column_count + ' columns. Ask me about missing values, statistics, charts, or machine learning!';
+
+        updateHeaderAndSidebar();
+        renderHomeDashboard();
+        renderColumns();
+        renderPreview();
+        updateSuggestions();
       }
-      function renderNumericStats() {
-        const card=$('numericStatsCard'), stats=dataset && Array.isArray(dataset.numeric_stats) ? dataset.numeric_stats : [];
-        card.hidden=!stats.length;
-        if(!stats.length)return;
-        const columns=Object.keys(stats[0]);
-        $('numericStatsHead').innerHTML='<tr>'+columns.map(column=>'<th>'+escapeHTML(column)+'</th>').join('')+'</tr>';
-        $('numericStatsBody').innerHTML=stats.map(row=>'<tr>'+columns.map(column=>'<td>'+escapeHTML(row[column]===null?'—':row[column])+'</td>').join('')+'</tr>').join('');
-      }
-      function updateDatasetUI() {
+
+      function updateHeaderAndSidebar() {
         if (!dataset) return;
-        $('sideFileName').textContent=dataset.name; $('sideFileMeta').textContent=formatBytes(dataset.file_size)+' · '+dataset.column_count+' columns';
-        $('headerFileName').textContent=dataset.name; $('headerFileMeta').textContent=formatBytes(dataset.file_size)+' · '+dataset.column_count+' columns · '+formatNumber(dataset.row_count)+' rows';
-        $('totalRows').textContent=formatNumber(dataset.row_count); $('totalColumns').textContent=formatNumber(dataset.column_count);
-        $('missingValues').textContent=formatNumber(dataset.missing_count); $('duplicateRows').textContent=formatNumber(dataset.duplicate_count);
-        $('previewCaption').textContent='First '+Math.min(dataset.preview_rows.length,dataset.row_count)+' of '+formatNumber(dataset.row_count)+' records';
-        updateSidebarSummary();
+        $('sideFileName').textContent = dataset.name;
+        $('sideFileMeta').textContent = formatBytes(dataset.file_size) + ' · ' + dataset.column_count + ' cols';
+        $('headerFileName').textContent = dataset.name;
+        $('headerFileMeta').textContent = formatBytes(dataset.file_size) + ' · ' + dataset.column_count + ' columns · ' + formatNumber(dataset.row_count) + ' rows';
+
+        const counts = { Numeric: 0, Categorical: 0, Date: 0 };
+        dataset.columns.forEach(col => { if (counts[col.type] !== undefined) counts[col.type]++; });
+
+        $('sideRows').textContent = formatNumber(dataset.row_count);
+        $('sideColumns').textContent = formatNumber(dataset.column_count);
+        $('sideMissing').textContent = formatNumber(dataset.missing_count);
+        $('sideQuality').textContent = formatNumber(dataset.quality_score) + '%';
+        $('sideNumeric').textContent = counts.Numeric;
+        $('sideCategorical').textContent = counts.Categorical;
+        $('sideDate').textContent = counts.Date;
       }
-      function updateSidebarSummary() {
+
+      // RENDER HOME DASHBOARD (DATASET BASIC INFO, ABOUT DATA, COLUMNS & STATS)
+      function renderHomeDashboard() {
         if (!dataset) return;
-        const counts={Numeric:0,Categorical:0,Date:0};
-        dataset.columns.forEach(column => { if (counts[column.type] !== undefined) counts[column.type]++; });
-        $('sideRows').textContent=formatNumber(dataset.row_count); $('sideColumns').textContent=formatNumber(dataset.column_count);
-        $('sideMissing').textContent=formatNumber(dataset.missing_count); $('sideDuplicates').textContent=formatNumber(dataset.duplicate_count);
-        $('sideNumeric').textContent=counts.Numeric; $('sideCategorical').textContent=counts.Categorical; $('sideDate').textContent=counts.Date;
+
+        // 1. KPI Cards
+        const quality = dataset.quality_score || 0;
+        $('dashQualityScore').textContent = formatNumber(quality) + '%';
+        $('dashQualityStatus').textContent = quality >= 90 ? 'Excellent' : quality >= 75 ? 'Good' : 'Needs Work';
+        $('dashQualityBar').style.width = Math.max(5, quality) + '%';
+
+        const missing = dataset.missing_count || 0;
+        const missingPct = dataset.missing_percentage || 0;
+        $('dashMissingCount').textContent = formatNumber(missing);
+        $('dashMissingSub').textContent = missingPct.toFixed(2) + '% of total data cells';
+        $('dashMissingBar').style.width = Math.max(3, Math.min(100, missingPct)) + '%';
+
+        $('dashDimensions').textContent = formatNumber(dataset.row_count) + ' × ' + dataset.column_count;
+        $('dashMemorySub').textContent = 'Memory usage: ' + (dataset.memory_usage || '—');
+
+        const duplicates = dataset.duplicate_count || 0;
+        const dupPct = dataset.row_count ? (100 * duplicates / dataset.row_count) : 0;
+        $('dashDuplicateCount').textContent = formatNumber(duplicates);
+        $('dashDuplicateSub').textContent = duplicates === 0 ? '100% unique records' : dupPct.toFixed(2) + '% duplicate rate';
+        $('dashDuplicateBar').style.width = Math.max(0, 100 - dupPct) + '%';
+
+        // 2. About Data Narrative
+        $('aboutDatasetSubtitle').textContent = dataset.name + ' · ' + formatBytes(dataset.file_size) + ' · ' + (dataset.memory_usage || '');
+        const aboutSummary = (dataset.about_data && dataset.about_data.summary) ||
+          (dataset.name + ' contains ' + formatNumber(dataset.row_count) + ' records and ' + dataset.column_count + ' columns. Overall data completeness is ' + dataset.completeness + '% with a data quality score of ' + formatNumber(dataset.quality_score) + '%.');
+        $('aboutDataSummary').textContent = aboutSummary;
+
+        // Breakdown counts
+        const numCount = dataset.columns.filter(c => c.type === 'Numeric').length;
+        const catCount = dataset.columns.filter(c => c.type === 'Categorical').length;
+        const dateCount = dataset.columns.filter(c => c.type === 'Date').length;
+        const idCount = (dataset.identifier_columns && dataset.identifier_columns.length) || 0;
+
+        $('aboutNumCount').textContent = numCount;
+        $('aboutCatCount').textContent = catCount;
+        $('aboutDateCount').textContent = dateCount;
+        $('aboutIdCount').textContent = idCount;
+
+        // Tags
+        const badges = [
+          '#TabularData',
+          '#' + dataset.column_count + ' Columns',
+          '#' + formatNumber(dataset.row_count) + ' Records',
+          quality >= 85 ? '#HighQuality' : '#NeedsCleaning',
+          duplicates === 0 ? '#NoDuplicates' : '#' + duplicates + ' Duplicates'
+        ];
+        if (idCount > 0) badges.push('#KeyIdentified');
+        $('aboutDataBadges').innerHTML = badges.map(b => '<span class="badge-chip">' + escapeHTML(b) + '</span>').join('');
+
+        // 3. Render Columns table on Dashboard
+        renderHomeColumns();
+
+        // 4. Render Numeric Statistics table on Dashboard
+        renderHomeNumericStats();
       }
+
+      function renderHomeColumns() {
+        if (!dataset) return;
+        const query = ($('dashColumnSearch').value || '').trim().toLowerCase();
+        const filtered = dataset.columns.filter(col => col.name.toLowerCase().includes(query) || col.type.toLowerCase().includes(query));
+        $('dashColSubtitle').textContent = dataset.column_count + ' columns detected · ' + filtered.length + ' shown';
+
+        const missingSummaryMap = {};
+        if (Array.isArray(dataset.missing_summary)) {
+          dataset.missing_summary.forEach(row => {
+            missingSummaryMap[row.Column] = row;
+          });
+        }
+
+        $('dashColumnsBody').innerHTML = filtered.length ? filtered.map((col, idx) => {
+          const typeClass = col.type === 'Numeric' ? 'numeric' : col.type === 'Date' ? 'date' : '';
+          const sample = dataset.preview_rows.map(row => row[col.name]).find(v => v !== null && v !== undefined && v !== '');
+          const missingCount = col.missing || 0;
+          const missingRate = dataset.row_count ? ((missingCount / dataset.row_count) * 100).toFixed(1) : 0;
+          const nonNullCount = (dataset.row_count - missingCount);
+
+          return '<tr>' +
+            '<td>' + (idx + 1) + '</td>' +
+            '<td><strong>' + escapeHTML(col.name) + '</strong></td>' +
+            '<td><span class="type-badge ' + typeClass + '">' + escapeHTML(col.type) + '</span></td>' +
+            '<td><code>' + escapeHTML(col.dtype || '—') + '</code></td>' +
+            '<td>' + formatNumber(nonNullCount) + ' / ' + formatNumber(dataset.row_count) + '</td>' +
+            '<td>' + (missingCount > 0 ? '<span style="color:var(--warning)">' + formatNumber(missingCount) + ' (' + missingRate + '%)</span>' : '<span style="color:var(--success)">0 (0%)</span>') + '</td>' +
+            '<td>' + formatNumber(col.unique) + '</td>' +
+            '<td title="' + escapeHTML(sample == null ? 'Missing' : sample) + '">' + escapeHTML(sample == null ? '—' : String(sample).slice(0, 24)) + '</td>' +
+            '<td><button class="text-button" data-ask="Summarize column ' + escapeHTML(col.name) + '">Analyze</button></td>' +
+          '</tr>';
+        }).join('') : '<tr><td colspan="9" style="text-align:center;padding:18px">No columns matching "' + escapeHTML(query) + '".</td></tr>';
+
+        $('dashColumnsBody').querySelectorAll('[data-ask]').forEach(btn => {
+          btn.addEventListener('click', () => askQuestion(btn.dataset.ask));
+        });
+      }
+      $('dashColumnSearch').addEventListener('input', renderHomeColumns);
+
+      function renderHomeNumericStats() {
+        const stats = dataset && Array.isArray(dataset.numeric_stats) ? dataset.numeric_stats : [];
+        const card = $('dashNumericStatsCard');
+        if (!stats.length) {
+          $('dashNumericStatsHead').innerHTML = '';
+          $('dashNumericStatsBody').innerHTML = '<tr><td style="text-align:center;padding:16px">No numeric features found in this dataset.</td></tr>';
+          return;
+        }
+        const columns = Object.keys(stats[0]);
+        $('dashNumericStatsHead').innerHTML = '<tr>' + columns.map(c => '<th>' + escapeHTML(c) + '</th>').join('') + '</tr>';
+        $('dashNumericStatsBody').innerHTML = stats.map(row => '<tr>' + columns.map(c => '<td>' + escapeHTML(row[c] === null ? '—' : row[c]) + '</td>').join('') + '</tr>').join('');
+      }
+
+      // KDD Columns & Preview
+      function renderColumns() {
+        if (!dataset) return;
+        const query = ($('columnSearch').value || '').trim().toLowerCase();
+        const filtered = dataset.columns.filter(col => col.name.toLowerCase().includes(query));
+        $('columnBody').innerHTML = filtered.length ? filtered.map(col => {
+          const sample = dataset.preview_rows.map(row => row[col.name]).find(v => v !== null && v !== undefined && v !== '');
+          const typeClass = col.type === 'Numeric' ? 'numeric' : col.type === 'Date' ? 'date' : '';
+          return '<tr><td class="column-check"><input type="checkbox" data-column="' + escapeHTML(col.name) + '" ' + (selectedColumns.has(col.name) ? 'checked' : '') + ' aria-label="Include ' + escapeHTML(col.name) + '"></td><td>' + escapeHTML(col.name) + '</td><td><span class="type-badge ' + typeClass + '">' + escapeHTML(col.type) + '</span></td><td title="' + escapeHTML(sample == null ? 'Missing' : sample) + '">' + escapeHTML(sample == null ? '—' : String(sample).slice(0, 24)) + '</td></tr>';
+        }).join('') : '<tr><td colspan="4" style="text-align:center;padding:18px">No matching columns.</td></tr>';
+
+        $('columnBody').querySelectorAll('[data-column]').forEach(input => input.addEventListener('change', () => {
+          const name = input.dataset.column;
+          if (input.checked) selectedColumns.add(name); else selectedColumns.delete(name);
+          updateSelectionCounts();
+        }));
+        $('selectAll').checked = dataset.columns.length > 0 && selectedColumns.size === dataset.columns.length;
+        $('selectionSummary').textContent = selectedColumns.size + ' of ' + dataset.column_count + ' columns selected';
+        $('searchCount').textContent = query ? filtered.length + ' found' : '';
+        updateSelectionCounts();
+      }
+      $('columnSearch').addEventListener('input', renderColumns);
+
+      function updateSelectionCounts() {
+        if (!dataset) return;
+        $('selectedCount').textContent = selectedColumns.size + ' of ' + dataset.column_count + ' columns selected';
+        $('selectionSummary').textContent = selectedColumns.size + ' of ' + dataset.column_count + ' columns selected';
+        $('selectAll').checked = dataset.column_count > 0 && selectedColumns.size === dataset.column_count;
+      }
+      $('selectAll').addEventListener('change', event => {
+        if (!dataset) return;
+        selectedColumns = event.target.checked ? new Set(dataset.headers) : new Set();
+        renderColumns();
+      });
 
       function renderPreview() {
         if (!dataset) return;
-        const visibleRows = dataset.preview_rows.slice(0,expandedPreview ? 8 : 5);
-        $('previewHead').innerHTML='<tr>'+dataset.headers.map(name => '<th>'+escapeHTML(name)+'</th>').join('')+'</tr>';
-        $('previewBody').innerHTML=visibleRows.length ? visibleRows.map(row => '<tr>'+dataset.headers.map(name => {
-          const value=row[name], missing=value===null || value===undefined || value==='';
-          return '<td class="'+(missing?'missing-cell':'')+'">'+(missing?'—':escapeHTML(value))+'</td>';
-        }).join('')+'</tr>').join('') : '<tr><td colspan="'+dataset.column_count+'">No preview rows available.</td></tr>';
-        $('previewCount').textContent='Showing '+visibleRows.length+' of '+formatNumber(dataset.row_count)+' rows';
-        $('viewFullData').textContent=expandedPreview ? 'Show fewer' : 'View full data';
-        $('overviewUpload').textContent='View '+formatNumber(dataset.row_count)+' rows';
+        const visibleRows = dataset.preview_rows.slice(0, expandedPreview ? 8 : 5);
+        $('previewHead').innerHTML = '<tr>' + dataset.headers.map(name => '<th>' + escapeHTML(name) + '</th>').join('') + '</tr>';
+        $('previewBody').innerHTML = visibleRows.length ? visibleRows.map(row => '<tr>' + dataset.headers.map(name => {
+          const val = row[name], missing = val === null || val === undefined || val === '';
+          return '<td class="' + (missing ? 'missing-cell' : '') + '">' + (missing ? '—' : escapeHTML(val)) + '</td>';
+        }).join('') + '</tr>').join('') : '<tr><td colspan="' + dataset.column_count + '">No preview rows available.</td></tr>';
+        $('previewCount').textContent = 'Showing ' + visibleRows.length + ' of ' + formatNumber(dataset.row_count) + ' rows';
+        $('viewFullData').textContent = expandedPreview ? 'Show fewer rows' : 'View more rows';
       }
-      $('viewFullData').addEventListener('click',() => { expandedPreview=!expandedPreview; renderPreview(); });
-      $('overviewUpload').addEventListener('click',() => { if(dataset) { expandedPreview=!expandedPreview; renderPreview(); } else $('fileInput').click(); });
-      $('columnSearch').addEventListener('input',renderColumns);
-      function renderColumns() {
-        if (!dataset) return;
-        const query=$('columnSearch').value.trim().toLowerCase();
-        const filtered=dataset.columns.filter(column => column.name.toLowerCase().includes(query));
-        $('columnBody').innerHTML=filtered.length ? filtered.map(column => {
-          const sample=dataset.preview_rows.map(row => row[column.name]).find(value => value!==null && value!==undefined && value!=='');
-          const typeClass=column.type==='Numeric'?'numeric':column.type==='Date'?'date':'';
-          return '<tr><td class="column-check"><input type="checkbox" data-column="'+escapeHTML(column.name)+'" '+(selectedColumns.has(column.name)?'checked':'')+' aria-label="Include '+escapeHTML(column.name)+'"></td><td>'+escapeHTML(column.name)+'</td><td><span class="type-badge '+typeClass+'">'+escapeHTML(column.type)+'</span></td><td title="'+escapeHTML(sample==null?'Missing':sample)+'">'+escapeHTML(sample==null?'—':String(sample).slice(0,24))+'</td></tr>';
-        }).join('') : '<tr><td colspan="4" style="text-align:center;padding:18px">No matching columns.</td></tr>';
-        $('columnBody').querySelectorAll('[data-column]').forEach(input => input.addEventListener('change',() => {
-          const name=input.dataset.column; if(input.checked) selectedColumns.add(name); else selectedColumns.delete(name); updateSelectionCounts();
-        }));
-        $('selectAll').checked=dataset.columns.length>0 && selectedColumns.size===dataset.columns.length;
-        $('selectionSummary').textContent=selectedColumns.size+' of '+dataset.column_count+' columns selected';
-        $('searchCount').textContent=query ? filtered.length+' found' : '';
-        updateSelectionCounts();
+      $('viewFullData').addEventListener('click', () => { expandedPreview = !expandedPreview; renderPreview(); });
+
+      // PAGE SWITCHING
+      function setPage(page) {
+        currentPage = page;
+        document.querySelectorAll('.nav-list .nav-item[data-page]').forEach(item => {
+          item.classList.toggle('active', item.dataset.page === page);
+        });
+
+        // Hide all views first
+        $('homeDashboard').hidden = (page !== 'home');
+        $('uploadView').hidden = (page !== 'upload');
+        $('kddView').hidden = (page !== 'kdd');
+        $('auxiliaryView').hidden = !['visualizations','ml','reports','settings'].includes(page);
+        $('stepNav').hidden = (page !== 'kdd');
+
+        // Titles and Descriptions
+        const pageMeta = {
+          home: {
+            title: 'AI Agent Data Dashboard',
+            desc: 'Real-time dataset health, quality score, column taxonomy, and descriptive statistics.'
+          },
+          upload: {
+            title: 'Upload Dataset',
+            desc: 'Load CSV or Excel datasets to profile, clean, and analyze with the AI Agent.'
+          },
+          kdd: {
+            title: 'KDD Process — ' + steps[currentStep],
+            desc: currentStep === 0 ? 'Choose your dataset and select columns for analysis.' : 'Interactive 6-stage Knowledge Discovery in Databases pipeline.'
+          },
+          visualizations: {
+            title: 'Visualizations Studio',
+            desc: 'Generate interactive charts, distributions, and correlation maps using AI Agent.'
+          },
+          ml: {
+            title: 'ML Lab — Machine Learning',
+            desc: 'Train classification, clustering, and PCA models directly on your active dataset.'
+          },
+          reports: {
+            title: 'Executive Reports & Quality Audit',
+            desc: 'Dataset profiling summary, missingness report, and modified data export.'
+          },
+          settings: {
+            title: 'Settings & AI Connectivity',
+            desc: 'Manage themes, backend endpoints, and Ollama (llama3.2) status.'
+          }
+        };
+
+        const currentMeta = pageMeta[page] || pageMeta.home;
+        $('pageTitle').textContent = currentMeta.title;
+        $('pageDescription').textContent = currentMeta.desc;
+
+        if (page === 'home') {
+          if (dataset) renderHomeDashboard();
+        } else if (page === 'kdd') {
+          setStep(currentStep);
+        } else if (['visualizations','ml','reports','settings'].includes(page)) {
+          renderAuxiliaryView(page);
+        }
+
+        $('sidebar').classList.remove('open');
+        updateSuggestions();
       }
-      function updateSelectionCounts() {
-        if (!dataset) return;
-        $('selectedCount').textContent=selectedColumns.size+' of '+dataset.column_count+' columns selected';
-        $('selectionSummary').textContent=selectedColumns.size+' of '+dataset.column_count+' columns selected';
-        $('selectAll').checked=dataset.column_count>0 && selectedColumns.size===dataset.column_count;
-      }
-      $('selectAll').addEventListener('change',event => {
-        if (!dataset) return;
-        selectedColumns=event.target.checked ? new Set(dataset.headers) : new Set(); renderColumns();
+
+      document.querySelectorAll('.nav-list .nav-item[data-page]').forEach(item => {
+        item.addEventListener('click', () => setPage(item.dataset.page));
       });
 
+      // KDD Workflow steps
       function setStep(step) {
-        if (!dataset && step>0) { toast('Upload a dataset before advancing through the KDD workflow.'); return; }
-        currentStep=Math.max(0,Math.min(5,step)); currentPage='kdd';
-        document.querySelectorAll('.nav-item[data-page]').forEach(item => item.classList.toggle('active',item.dataset.page==='kdd'));
-        document.querySelectorAll('.step-item').forEach(item => { const n=Number(item.dataset.step); item.classList.toggle('active',n===currentStep); item.classList.toggle('done',n<currentStep); });
-        document.querySelectorAll('.step-nav [data-step]').forEach(item => item.classList.toggle('active',Number(item.dataset.step)===currentStep));
-        $('pageTitle').textContent='KDD Process — '+steps[currentStep];
-        $('pageDescription').textContent=currentStep===0?'Choose your dataset and select columns for analysis.':'Continue the KDD workflow with real analysis from the app.py backend.';
-        $('tipTitle').textContent=currentStep===0?'Quick Tip':steps[currentStep]+' tip'; $('tipText').textContent=tips[currentStep];
-        $('selectionLayout').hidden=currentStep!==0; $('stepContent').hidden=currentStep===0; $('sectionContent').hidden=true; $('stepper').hidden=false;
-        $('backButton').disabled=currentStep===0; $('nextButton').textContent=currentStep===5?'Finish ✓':'Next →';
-        if (currentStep>0) renderStepContent();
-        updateSuggestions();
-      }
-      document.querySelectorAll('[data-step]').forEach(button => button.addEventListener('click',() => setStep(Number(button.dataset.step))));
-      $('backButton').addEventListener('click',() => setStep(currentStep-1));
-      $('nextButton').addEventListener('click',() => { if(currentStep<5)setStep(currentStep+1); else {setStep(0);toast('KDD workflow complete. Review results with the assistant or export your data.');} });
-      function renderStepContent() {
-        const promptList=promptsByStep[currentStep] || [];
-        const description=['','Review the dataset and ask app.py to clean or validate it.','Request a supported transformation through the assistant.','Run data mining and exploratory analysis supported by the project.','Ask for evaluation metrics from an analysis already run.','Review backend-generated insights, charts, and download the current dataset.'][currentStep];
-        $('stepContent').innerHTML='<article class="card card-pad" style="grid-column:1/-1"><div class="card-head"><div><div class="card-title"><span class="title-icon">✦</span><h2>'+escapeHTML(steps[currentStep])+'</h2></div><div class="card-subtitle">'+escapeHTML(description)+'</div></div><span class="status-loaded">Step '+(currentStep+1)+' of 6</span></div><div class="aux-prompts" id="stepPrompts"></div><div class="tip-bar" style="margin-top:12px"><span class="tip-bulb">i</span><span><strong>Use the AI assistant to run this step</strong><small>Results and charts are calculated by the existing app.py backend. Unsupported operations return its normal explanation.</small></span></div></article>';
-        $('stepPrompts').innerHTML=promptList.map(prompt => '<button class="btn" data-ask="'+escapeHTML(prompt)+'">'+escapeHTML(prompt)+'</button>').join('')+(currentStep===5?'<button class="btn" id="stepExport">⇩ Download current data</button>':'');
-        $('stepPrompts').querySelectorAll('[data-ask]').forEach(button => button.addEventListener('click',() => askQuestion(button.dataset.ask)));
-        const exportButton=$('stepExport'); if(exportButton) exportButton.addEventListener('click',downloadDataset);
-      }
-      function setPage(page) {
-        if (page==='upload') { $('fileInput').click(); return; }
-        if (page==='kdd' || page==='home') { setStep(0); if(page==='home') { currentPage='home'; $('pageTitle').textContent='Workspace Overview'; $('pageDescription').textContent='Your dataset profile and analysis workspace.'; } $('sidebar').classList.remove('open'); return; }
-        currentPage=page;
-        document.querySelectorAll('.nav-item[data-page]').forEach(item => item.classList.toggle('active',item.dataset.page===page));
-        $('selectionLayout').hidden=true; $('stepContent').hidden=true; $('stepper').hidden=true; $('sectionContent').hidden=false;
-        const names={ml:'ML Lab',visualizations:'Visualizations',reports:'Reports',settings:'Settings'};
-        const titles={ml:'Train models and inspect results returned by app.py.',visualizations:'Generate charts from your uploaded dataset with the existing visualization engine.',reports:'Review the live dataset profile, data quality, and analysis results.',settings:'Manage the local workspace appearance and backend connection.'};
-        $('pageTitle').textContent=names[page] || 'Workspace'; $('pageDescription').textContent=titles[page] || '';
-        $('sectionContent').innerHTML=auxiliaryMarkup(page);
-        $('sectionContent').querySelectorAll('[data-ask]').forEach(button => button.addEventListener('click',() => askQuestion(button.dataset.ask)));
-        const sample=$('auxSample'); if(sample) sample.addEventListener('click',loadSample);
-        const auxTheme=$('auxTheme'); if(auxTheme) auxTheme.addEventListener('click',()=>$('themeToggle').click());
-        const auxExport=$('stepExport'); if(auxExport) auxExport.addEventListener('click',downloadDataset);
-        if(page==='settings') $('backendSettings').textContent=backendReachable?(llmConnected?'app.py connected · '+(window.adaaModel||'Ollama')+' available':'app.py connected · Ollama offline, deterministic analysis available'):'Start app.py with python app.py to connect this interface.';
-        updateSuggestions();
-        $('sidebar').classList.remove('open');
-      }
-      function auxiliaryMarkup(page) {
-        if(page==='reports') return '<div class="aux-panel"><article class="card aux-card"><h2>Dataset profile</h2><p>'+ (dataset?formatNumber(dataset.row_count)+' rows · '+dataset.column_count+' columns · '+formatBytes(dataset.file_size):'Upload data to build a report.')+'</p><div class="aux-prompts"><button class="btn" data-ask="Show data quality report">Refresh data quality</button><button class="btn" data-ask="Summarize this dataset">Generate summary</button></div></article><article class="card aux-card"><h2>Quality and missingness</h2><p>'+(dataset?formatNumber(dataset.missing_count)+' missing values · '+formatNumber(dataset.duplicate_count)+' duplicates · '+formatNumber(dataset.quality_score)+'% quality score':'No dataset profile yet.')+'</p><div class="aux-prompts"><button class="btn" data-ask="Show missing values for each column">Missing value report</button><button class="btn" id="stepExport">⇩ Export current CSV</button></div></article></div>';
-        if(page==='settings') return '<div class="aux-panel"><article class="card aux-card"><h2>Appearance</h2><p>Choose the dashboard theme. Your choice is saved in this browser.</p><button class="btn" id="auxTheme">Toggle light / dark theme</button></article><article class="card aux-card"><h2>Backend status</h2><p id="backendSettings">Checking local app.py connection…</p><button class="btn" data-ask="What can you do with my dataset?">Ask the assistant for help</button></article></div>';
-        const queries=page==='ml'?['Cluster data into 3 groups using KMeans','Train a classification model','Train a regression model','Show model evaluation metrics']:['Create a bar chart','Create a histogram','Create a pie chart','Show the correlation matrix'];
-        const heading=page==='ml'?'Run supported machine learning tasks':'Create charts from the current dataset';
-        return '<div class="aux-panel"><article class="card aux-card" style="grid-column:1/-1"><h2>'+heading+'</h2><p>Choose a request to send to the existing query planner and analysis engine. The assistant will report backend results or explain when a request is unsupported.</p><div class="aux-prompts">'+queries.map(query=>'<button class="btn" data-ask="'+escapeHTML(query)+'">'+escapeHTML(query)+'</button>').join('')+'</div></article></div>';
-      }
-      document.querySelectorAll('.nav-item[data-page]').forEach(item => item.addEventListener('click',() => setPage(item.dataset.page)));
+        if (!dataset && step > 0) { toast('Load a dataset before advancing through the KDD pipeline.'); return; }
+        currentStep = Math.max(0, Math.min(5, step));
+        document.querySelectorAll('.step-item').forEach(item => {
+          const n = Number(item.dataset.step);
+          item.classList.toggle('active', n === currentStep);
+          item.classList.toggle('done', n < currentStep);
+        });
+        document.querySelectorAll('.step-nav [data-step]').forEach(item => {
+          item.classList.toggle('active', Number(item.dataset.step) === currentStep);
+        });
+        $('pageTitle').textContent = 'KDD Process — ' + steps[currentStep];
+        $('tipTitle').textContent = steps[currentStep] + ' Tip';
+        $('tipText').textContent = tips[currentStep];
 
+        $('selectionLayout').hidden = (currentStep !== 0);
+        $('stepContent').hidden = (currentStep === 0);
+        $('backButton').disabled = (currentStep === 0);
+        $('nextButton').textContent = currentStep === 5 ? 'Finish ✓' : 'Next →';
+
+        if (currentStep > 0) renderStepContent();
+        updateSuggestions();
+      }
+
+      document.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => setStep(Number(btn.dataset.step))));
+      $('backButton').addEventListener('click', () => setStep(currentStep - 1));
+      $('nextButton').addEventListener('click', () => {
+        if (currentStep < 5) setStep(currentStep + 1);
+        else { setStep(0); toast('KDD cycle complete. Export your results or ask new questions.'); }
+      });
+
+      function renderStepContent() {
+        const promptList = promptsByStep[currentStep] || [];
+        const description = [
+          '',
+          'Inspect missing values, duplicates, and outliers before transforming the dataset.',
+          'Scale, normalize, or one-hot encode features for mining algorithms.',
+          'Run clustering, classification, association, or regression models.',
+          'Review precision, recall, confusion matrix, and feature importances.',
+          'Synthesize findings into charts, executive reports, and download clean data.'
+        ][currentStep];
+
+        $('stepContent').innerHTML = '<article class="card card-pad" style="grid-column:1/-1">' +
+          '<div class="card-head"><div><div class="card-title"><span class="title-icon">✦</span><h2>Step ' + (currentStep + 1) + ': ' + escapeHTML(steps[currentStep]) + '</h2></div><div class="card-subtitle">' + escapeHTML(description) + '</div></div><span class="status-loaded">Stage ' + (currentStep + 1) + '/6</span></div>' +
+          '<div class="aux-prompts" id="stepPrompts"></div>' +
+          '<div class="tip-bar" style="margin-top:12px"><span class="tip-bulb">🤖</span><span><strong>AI Agent Autonomous Execution</strong><small>Click any operation above or type your custom instruction below.</small></span></div>' +
+          '</article>';
+
+        $('stepPrompts').innerHTML = promptList.map(p => '<button class="btn" data-ask="' + escapeHTML(p) + '">' + escapeHTML(p) + '</button>').join('') +
+          (currentStep === 5 ? '<button class="btn primary" id="stepExport">⇩ Download Modified CSV</button>' : '');
+
+        $('stepPrompts').querySelectorAll('[data-ask]').forEach(btn => btn.addEventListener('click', () => askQuestion(btn.dataset.ask)));
+        const exp = $('stepExport'); if (exp) exp.addEventListener('click', downloadDataset);
+      }
+
+      // AUXILIARY VIEWS: Visualizations, ML Lab, Reports, Settings
+      function renderAuxiliaryView(page) {
+        const aux = $('auxiliaryView');
+        if (page === 'visualizations') {
+          aux.innerHTML = '<div class="stack">' +
+            '<article class="card card-pad">' +
+              '<div class="card-head"><div><div class="card-title"><span class="title-icon">▥</span><h2>Interactive Chart Studio</h2></div><div class="card-subtitle">Choose a chart type to generate visual analytics with Plotly</div></div></div>' +
+              '<div class="aux-prompts">' +
+                '<button class="btn primary" data-ask="Create pie chart for Embarked.">Pie Chart (Embarked)</button>' +
+                '<button class="btn primary" data-ask="Show bar chart of Sex.">Bar Chart (Sex)</button>' +
+                '<button class="btn primary" data-ask="Plot histogram for Age.">Histogram (Age)</button>' +
+                '<button class="btn primary" data-ask="Plot Age vs Fare scatter.">Scatter Plot (Age vs Fare)</button>' +
+                '<button class="btn primary" data-ask="Show boxplot for Age.">Box Plot (Age)</button>' +
+                '<button class="btn primary" data-ask="Show correlation heatmap.">Correlation Heatmap</button>' +
+                '<button class="btn" data-ask="Show count plot of Pclass.">Count Plot (Pclass)</button>' +
+                '<button class="btn" data-ask="Plot line graph for Fare.">Line Plot (Fare)</button>' +
+              '</div>' +
+            '</article>' +
+          '</div>';
+        } else if (page === 'ml') {
+          aux.innerHTML = '<div class="stack">' +
+            '<article class="card card-pad">' +
+              '<div class="card-head"><div><div class="card-title"><span class="title-icon">◈</span><h2>Machine Learning Studio</h2></div><div class="card-subtitle">Train classifiers, clustering models, and dimensionality reduction</div></div></div>' +
+              '<div class="aux-panel">' +
+                '<div class="prompt-cat-card"><div class="prompt-cat-title"><span>🌲</span> Classification</div><p style="color:var(--quiet);font-size:8.5px;margin:0 0 6px">Supervised classification with Random Forest</p><button class="btn primary" data-ask="Train Random Forest to predict Survived.">Train Random Forest</button><button class="btn" data-ask="Show model evaluation metrics.">Model Metrics</button></div>' +
+                '<div class="prompt-cat-card"><div class="prompt-cat-title"><span>🎯</span> Clustering</div><p style="color:var(--quiet);font-size:8.5px;margin:0 0 6px">Unsupervised KMeans grouping</p><button class="btn primary" data-ask="Cluster data into 3 groups using KMeans.">KMeans (k=3)</button><button class="btn" data-ask="Cluster data into 5 groups using KMeans.">KMeans (k=5)</button></div>' +
+                '<div class="prompt-cat-card"><div class="prompt-cat-title"><span>📐</span> PCA Reduction</div><p style="color:var(--quiet);font-size:8.5px;margin:0 0 6px">Principal component projection</p><button class="btn primary" data-ask="Run PCA with 2 components.">PCA (2 Components)</button></div>' +
+                '<div class="prompt-cat-card"><div class="prompt-cat-title"><span>⭐</span> Feature Importance</div><p style="color:var(--quiet);font-size:8.5px;margin:0 0 6px">Gini impurity feature contributions</p><button class="btn primary" data-ask="Identify feature importance for predicting Survived.">Feature Importance</button></div>' +
+              '</div>' +
+            '</article>' +
+          '</div>';
+        } else if (page === 'reports') {
+          aux.innerHTML = '<div class="aux-panel">' +
+            '<article class="card aux-card"><h2>Dataset Profile Report</h2><p>' + (dataset ? formatNumber(dataset.row_count) + ' rows · ' + dataset.column_count + ' columns · ' + formatBytes(dataset.file_size) : 'No dataset loaded.') + '</p><div class="aux-prompts"><button class="btn primary" data-ask="Generate a complete dataset profiling report.">Full Profiling Report</button><button class="btn" data-ask="Give me a complete overview of the dataset.">Executive Overview</button></div></article>' +
+            '<article class="card aux-card"><h2>Data Quality Audit</h2><p>' + (dataset ? formatNumber(dataset.missing_count) + ' missing values · ' + formatNumber(dataset.duplicate_count) + ' duplicates · ' + formatNumber(dataset.quality_score) + '% quality score' : 'No dataset profile available.') + '</p><div class="aux-prompts"><button class="btn primary" data-ask="Generate a complete data quality report.">Data Quality Audit</button><button class="btn" id="reportsDownloadBtn">⇩ Export Modified CSV</button></div></article>' +
+          '</div>';
+          const rExp = $('reportsDownloadBtn'); if (rExp) rExp.addEventListener('click', downloadDataset);
+        } else if (page === 'settings') {
+          aux.innerHTML = '<div class="aux-panel">' +
+            '<article class="card aux-card"><h2>Appearance</h2><p>Switch between dark and light themes for high contrast or reduced glare.</p><button class="btn primary" id="auxThemeBtn">Toggle Light / Dark Theme</button></article>' +
+            '<article class="card aux-card"><h2>AI Agent & Model Connectivity</h2><p id="settingsLlmStatus">Checking Ollama (llama3.2) status…</p><div class="aux-prompts"><button class="btn" data-ask="Who are you and what operations can you perform?">Test AI Agent</button></div></article>' +
+          '</div>';
+          $('auxThemeBtn').addEventListener('click', () => $('themeToggle').click());
+          $('settingsLlmStatus').textContent = llmConnected ? 'Ollama connected · ' + (window.aiAgentModel || 'llama3.2') + ' active at http://localhost:11434' : 'app.py connected · Ollama offline (Deterministic NLP fallback active)';
+        }
+
+        aux.querySelectorAll('[data-ask]').forEach(btn => btn.addEventListener('click', () => askQuestion(btn.dataset.ask)));
+      }
+
+      // Suggestions Bar
       function updateSuggestions() {
-        const pagePrompts={ml:['Cluster data into 3 groups using KMeans','Train a classification model','Train a regression model'],visualizations:['Create a bar chart','Create a histogram','Create a pie chart','Show the correlation matrix'],reports:['Show data quality report','Show missing values for each column','Summarize this dataset'],settings:['What can you do with my dataset?']};
-        const prompts=(pagePrompts[currentPage] || promptsByStep[currentStep]).slice(0,4);
-        $('suggestionList').innerHTML=prompts.map(prompt => '<button class="suggestion" data-suggest="'+escapeHTML(prompt)+'">✧ '+escapeHTML(prompt)+'</button>').join('');
-        $('suggestionList').querySelectorAll('[data-suggest]').forEach(button => button.addEventListener('click',() => /download/i.test(button.dataset.suggest)?downloadDataset():askQuestion(button.dataset.suggest)));
+        const pagePrompts = {
+          home: ['Show missing values in every column.','Calculate mean, median, and std for numeric columns.','Create pie chart for Embarked.','Train Random Forest to predict Survived.'],
+          upload: ['Give me a complete overview of the dataset.','Show the first 5 records.'],
+          kdd: promptsByStep[currentStep] || [],
+          visualizations: ['Create pie chart for Embarked.','Show bar chart of Sex.','Plot histogram for Age.','Plot Age vs Fare scatter.'],
+          ml: ['Train Random Forest to predict Survived.','Cluster data into 3 groups using KMeans.','Run PCA with 2 components.','Identify feature importance.'],
+          reports: ['Generate a complete dataset profiling report.','Generate a complete data quality report.','Show missing values in every column.'],
+          settings: ['Who are you and what operations can you perform?']
+        };
+        const list = (pagePrompts[currentPage] || pagePrompts.home).slice(0, 4);
+        $('suggestionList').innerHTML = list.map(p => '<button class="suggestion" data-suggest="' + escapeHTML(p) + '">✧ ' + escapeHTML(p) + '</button>').join('');
+        $('suggestionList').querySelectorAll('[data-suggest]').forEach(btn => {
+          btn.addEventListener('click', () => askQuestion(btn.dataset.suggest));
+        });
       }
-      function appendMessage(text,role,typing) {
-        const message=document.createElement('div'); message.className='message'+(role==='user'?' user':'')+(typing?' typing':'');
-        const meta=document.createElement('small'); meta.className='message-meta'; meta.textContent=role==='user'?'You · now':'ADAA · now';
-        const bubble=document.createElement('div'); bubble.className='bubble'; bubble.textContent=text;
-        message.append(meta,bubble); $('chatMessages').appendChild(message); $('chatMessages').scrollTop=$('chatMessages').scrollHeight; return message;
+
+      // Chatbot interaction & query execution
+      function appendMessage(text, role, typing) {
+        const msg = document.createElement('div');
+        msg.className = 'message' + (role === 'user' ? ' user' : '') + (typing ? ' typing' : '');
+        const meta = document.createElement('small');
+        meta.className = 'message-meta';
+        meta.textContent = role === 'user' ? 'You · now' : 'AI Agent · now';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = text;
+        msg.append(meta, bubble);
+        $('chatMessages').appendChild(msg);
+        $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+        return msg;
       }
-      $('chatForm').addEventListener('submit',event => { event.preventDefault(); const question=$('questionInput').value.trim(); if(question){$('questionInput').value='';askQuestion(question);} });
+
+      $('chatForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const q = $('questionInput').value.trim();
+        if (q) {
+          $('questionInput').value = '';
+          askQuestion(q);
+        }
+      });
+
+      // Hook all 1-click prompts
+      document.querySelectorAll('[data-ask]').forEach(btn => {
+        btn.addEventListener('click', () => askQuestion(btn.dataset.ask));
+      });
+      $('chipDownloadCsv').addEventListener('click', downloadDataset);
+      $('dashDownloadBtn').addEventListener('click', downloadDataset);
+      $('dashModifyBtn').addEventListener('click', () => {
+        if (!dataset) { toast('Load a dataset before modifying it.'); return; }
+        $('modifyModal').hidden = false;
+        updateModifyControls();
+      });
+
       async function askQuestion(question) {
-        if (!dataset) { appendMessage('Upload a CSV or Excel dataset first, then I can run this analysis with app.py.','assistant'); return; }
-        if (!selectedColumns.size) { toast('Select at least one column before asking the assistant.'); return; }
-        appendMessage(question,'user');
-        const pending=appendMessage('Analyzing the dataset with app.py…','assistant',true);
-        $('assistantStatus').textContent='Analyzing…';
-        const submit=$('chatForm').querySelector('button[type="submit"]'); submit.disabled=true;
+        if (!dataset) {
+          openChat();
+          appendMessage('Please load or upload a CSV/Excel dataset first.', 'assistant');
+          return;
+        }
+        if (!selectedColumns.size) {
+          toast('Select at least one column before asking AI Agent.');
+          return;
+        }
+
+        // Open chat if closed so user sees the response!
+        openChat();
+
+        appendMessage(question, 'user');
+        const pending = appendMessage('Analyzing dataset with AI Agent…', 'assistant', true);
+        $('assistantStatus').textContent = 'Analyzing…';
+        const submitBtn = $('chatForm').querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
         try {
-          const result=await apiRequest('/api/datasets/'+encodeURIComponent(dataset.id)+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:question,columns:Array.from(selectedColumns)})});
-          pending.remove(); appendMessage(result.answer || 'The backend returned no text for this request.','assistant');
+          const result = await apiRequest('/api/datasets/' + encodeURIComponent(dataset.id) + '/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: question, columns: Array.from(selectedColumns) })
+          });
+          pending.remove();
+          appendMessage(result.answer || 'Analysis complete.', 'assistant');
           renderAnalysis(result);
-          if (result.dataset) { setDataset(result.dataset); toast('The backend updated the dataset profile.'); }
-          $('assistantStatus').textContent=llmConnected?'Online · '+(window.adaaModel || 'Ollama'):'Online · local analysis';
+          if (result.dataset) {
+            setDataset(result.dataset);
+            toast('AI Agent updated the dataset profile.');
+          }
+          $('assistantStatus').textContent = llmConnected ? 'Online · ' + (window.aiAgentModel || 'llama3.2') : 'Online · local engine';
         } catch(error) {
-          pending.remove(); appendMessage(error.message || 'The app.py request failed.','assistant'); $('assistantStatus').textContent='Backend request failed'; $('backendDot').style.background='var(--warning)';
-        } finally { submit.disabled=false; $('chatMessages').scrollTop=$('chatMessages').scrollHeight; }
+          pending.remove();
+          appendMessage(error.message || 'Execution error.', 'assistant');
+          $('assistantStatus').textContent = 'Request failed';
+          $('backendDot').style.background = 'var(--warning)';
+        } finally {
+          submitBtn.disabled = false;
+          $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+        }
       }
+
       function renderAnalysis(result) {
-        const output=$('analysisOutput'); output.innerHTML='';
+        const output = $('analysisOutput');
+        output.innerHTML = '';
         if (result.table && result.table.columns && result.table.rows) {
-          const label=document.createElement('div'); label.className='output-label'; label.textContent='Result table from app.py'; output.appendChild(label);
-          const tableWrap=document.createElement('div'); tableWrap.className='output-table';
-          const columns=result.table.columns, rows=result.table.rows;
-          tableWrap.innerHTML='<table><thead><tr>'+columns.map(column=>'<th>'+escapeHTML(column)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+columns.map(column=>'<td>'+escapeHTML(row[column]===null?'—':row[column])+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
-          output.appendChild(tableWrap);
+          const lbl = document.createElement('div');
+          lbl.className = 'output-label';
+          lbl.textContent = 'Result Table from AI Agent';
+          output.appendChild(lbl);
+          const wrap = document.createElement('div');
+          wrap.className = 'output-table';
+          const cols = result.table.columns, rows = result.table.rows;
+          wrap.innerHTML = '<table><thead><tr>' + cols.map(c => '<th>' + escapeHTML(c) + '</th>').join('') + '</tr></thead><tbody>' +
+            rows.map(r => '<tr>' + cols.map(c => '<td>' + escapeHTML(r[c] === null ? '—' : r[c]) + '</td>').join('') + '</tr>').join('') +
+            '</tbody></table>';
+          output.appendChild(wrap);
         }
         if (result.chart) {
-          const label=document.createElement('div'); label.className='output-label'; label.textContent='Generated visualization'; output.appendChild(label);
-          const image=document.createElement('div'); image.className='chart-output'; image.innerHTML='<img alt="Chart generated by app.py">'; image.querySelector('img').src=result.chart; output.appendChild(image);
+          const lbl = document.createElement('div');
+          lbl.className = 'output-label';
+          lbl.textContent = 'Generated Visualization';
+          output.appendChild(lbl);
+          const imgWrap = document.createElement('div');
+          imgWrap.className = 'chart-output';
+          imgWrap.innerHTML = '<img alt="Chart generated by AI Agent">';
+          imgWrap.querySelector('img').src = result.chart;
+          output.appendChild(imgWrap);
         }
       }
-      $('clearChat').addEventListener('click',() => {
-        $('chatMessages').innerHTML=''; $('analysisOutput').innerHTML='';
-        appendMessage(dataset?'Chat cleared. Your dataset is still available for analysis.':'Chat cleared. Upload a dataset to begin.','assistant');
+
+      $('clearChat').addEventListener('click', () => {
+        $('chatMessages').innerHTML = '';
+        $('analysisOutput').innerHTML = '';
+        appendMessage(dataset ? 'Chat cleared. Your dataset is ready for new queries.' : 'Chat cleared. Upload a dataset to begin.', 'assistant');
       });
 
-      $('modifyButton').addEventListener('click',() => {
+      // Modify Modal
+      $('modifyButton').addEventListener('click', () => {
         if (!dataset) { toast('Load a dataset before modifying it.'); return; }
-        $('modifyModal').hidden=false; updateModifyControls();
+        $('modifyModal').hidden = false;
+        updateModifyControls();
       });
-      $('cancelModify').addEventListener('click',()=>$('modifyModal').hidden=true);
-      $('modifyModal').addEventListener('click',event=>{if(event.target===$('modifyModal'))$('modifyModal').hidden=true;});
+      $('cancelModify').addEventListener('click', () => $('modifyModal').hidden = true);
+      $('modifyModal').addEventListener('click', e => { if (e.target === $('modifyModal')) $('modifyModal').hidden = true; });
+
       function updateModifyControls() {
-        const operation=$('modifyOperation').value, global=['duplicates','dropna'].includes(operation), numericOnly=['mean','median'].includes(operation);
-        $('modifyColumnLabel').hidden=global; $('modifyValueLabel').hidden=operation!=='constant';
-        if(global)return;
-        const columns=dataset.columns.filter(column=>!numericOnly || column.type==='Numeric');
-        $('modifyColumn').innerHTML=columns.map(column=>'<option value="'+escapeHTML(column.name)+'">'+escapeHTML(column.name)+'</option>').join('');
-        $('modifyColumn').disabled=!columns.length;
-        if(!columns.length)toast('This operation needs a numeric column. Choose mode or another operation instead.');
+        const op = $('modifyOperation').value;
+        const isGlobal = ['duplicates', 'dropna'].includes(op);
+        const numericOnly = ['mean', 'median'].includes(op);
+
+        $('modifyColumnLabel').hidden = isGlobal;
+        $('modifyValueLabel').hidden = (op !== 'constant');
+        if (isGlobal) return;
+
+        const cols = dataset.columns.filter(col => !numericOnly || col.type === 'Numeric');
+        $('modifyColumn').innerHTML = cols.map(col => '<option value="' + escapeHTML(col.name) + '">' + escapeHTML(col.name) + '</option>').join('');
+        $('modifyColumn').disabled = !cols.length;
+        if (!cols.length) toast('This operation requires a numeric column.');
       }
-      $('modifyOperation').addEventListener('change',updateModifyControls);
-      $('modifyForm').addEventListener('submit',event => {
-        event.preventDefault(); if(!dataset)return;
-        const operation=$('modifyOperation').value, column=$('modifyColumn').value;
-        let question;
-        if(operation==='duplicates') question='Remove duplicate rows';
-        else if(operation==='dropna') question='Drop rows with missing values';
-        else if(!column) { toast('Select a valid column for this operation.'); return; }
-        else if(operation==='constant') question='Fill missing values in '+column+' with '+$('modifyValue').value;
-        else question='Fill missing values in '+column+' by '+operation;
-        $('modifyModal').hidden=true; askQuestion(question);
+      $('modifyOperation').addEventListener('change', updateModifyControls);
+
+      $('modifyForm').addEventListener('submit', event => {
+        event.preventDefault();
+        if (!dataset) return;
+        const op = $('modifyOperation').value, col = $('modifyColumn').value;
+        let q;
+        if (op === 'duplicates') q = 'Remove duplicate rows';
+        else if (op === 'dropna') q = 'Drop rows with missing values';
+        else if (!col) { toast('Select a valid column.'); return; }
+        else if (op === 'constant') q = 'Fill missing values in ' + col + ' with ' + $('modifyValue').value;
+        else q = 'Fill missing values in ' + col + ' by ' + op;
+
+        $('modifyModal').hidden = true;
+        askQuestion(q);
       });
 
+      // Download CSV
       async function downloadDataset() {
-        if(!dataset){toast('Load a dataset before downloading.');return;}
+        if (!dataset) { toast('Load a dataset before downloading.'); return; }
         try {
-          const response=await fetch('/api/datasets/'+encodeURIComponent(dataset.id)+'/export');
-          if(!response.ok)throw new Error('The backend could not export this dataset.');
-          const blob=await response.blob(), link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='modified_'+dataset.name.replace(/\.[^.]+$/,'')+'.csv'; link.click(); URL.revokeObjectURL(link.href); toast('Current dataset exported as CSV');
-        } catch(error) { toast(error.message || 'Download failed'); }
+          const res = await fetch('/api/datasets/' + encodeURIComponent(dataset.id) + '/export');
+          if (!res.ok) throw new Error('Could not export this dataset.');
+          const blob = await res.blob();
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'modified_' + dataset.name.replace(/\.[^.]+$/, '') + '.csv';
+          link.click();
+          URL.revokeObjectURL(link.href);
+          toast('Current dataset downloaded as CSV.');
+        } catch(error) {
+          toast(error.message || 'Download failed.');
+        }
       }
-      $('downloadButton').addEventListener('click',downloadDataset);
+      $('downloadButton').addEventListener('click', downloadDataset);
 
-      let backendReachable=false;
+      // Initial Health Check
       apiRequest('/api/health').then(status => {
-        backendReachable=true;
-        llmConnected=Boolean(status.llm_connected); window.adaaModel=status.llm_model || 'Ollama';
-        $('assistantStatus').textContent=llmConnected?'Online · '+window.adaaModel:'Online · local analysis';
-        if($('backendSettings')) $('backendSettings').textContent=llmConnected?'app.py connected · '+window.adaaModel+' available':'app.py connected · Ollama offline, deterministic analysis available';
+        llmConnected = Boolean(status.llm_connected);
+        window.aiAgentModel = status.llm_model || 'llama3.2';
+        $('assistantStatus').textContent = llmConnected ? 'Online · ' + window.aiAgentModel : 'Online · local engine';
       }).catch(() => {
-        backendReachable=false;
-        $('assistantStatus').textContent='Cannot reach app.py'; $('backendDot').style.background='var(--warning)';
-        if($('backendSettings')) $('backendSettings').textContent='Start app.py with python app.py to connect this interface.';
+        $('assistantStatus').textContent = 'Backend offline';
+        $('backendDot').style.background = 'var(--warning)';
       });
-      updateSuggestions();
-      setStep(0);
+
+      // Auto-load sample dataset on first launch so Home Dashboard is immediately populated!
+      loadSample();
+      setPage('home');
     })();
   </script>
 </body>

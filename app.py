@@ -188,7 +188,7 @@ def _generate_conversational_reply(question: str, df: pd.DataFrame, dataset_name
         total_cols = len(df.columns) if df is not None else 0
 
         sys_prompt = (
-            "You are ADAA (AI Data Analyst Agent), a helpful and expert AI data science copilot powered by Ollama (llama3.2).\n"
+            "You are AI Agent, a helpful and expert AI data science copilot powered by Ollama (llama3.2).\n"
             f"Active dataset: '{dataset_name}' with {total_rows:,} rows and {total_cols} columns.\n"
             f"Columns: {cols_summary}.\n"
             f"Key numerical columns: {num_cols}. Key categorical columns: {cat_cols}.\n\n"
@@ -710,6 +710,17 @@ def _dataset_payload(dataset_id, record):
         "memory_usage": profile["memory_usage"],
         "numeric_stats": _frame_records(profile["numerical_stats_table"]),
         "categorical_stats": _frame_records(profile["categorical_stats_table"]),
+        "missing_summary": _frame_records(profile["missing_summary_table"]),
+        "column_types": profile.get("column_types", {}),
+        "identifier_columns": profile.get("identifier_columns", []),
+        "constant_columns": profile.get("constant_columns", []),
+        "about_data": {
+            "name": record["name"],
+            "summary": f"{record['name']} contains {len(df):,} records and {len(df.columns)} features. Overall data completeness is {round(100.0 - float(profile['overall_missing_percentage']), 1)}% with a data quality score of {profile['quality_score']}%.",
+            "numerical_count": len(types["numerical"]),
+            "categorical_count": len(types["categorical"]),
+            "datetime_count": len(types["datetime"]),
+        },
     }
 
 
