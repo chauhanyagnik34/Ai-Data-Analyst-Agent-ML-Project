@@ -38,7 +38,7 @@ def generate_response(question: str, analysis_result: dict, dataset_name: str = 
     val = analysis_result.get("value")
     engine_msg = analysis_result.get("message", "")
 
-    # Attempt LLM natural language phrasing if API key is configured
+    # Attempt LLM natural language phrasing if Ollama is available
     status = check_api_status()
     if status["configured"]:
         llm_text = _generate_llm_grounded_text(question, task, val, engine_msg)
@@ -50,7 +50,7 @@ def generate_response(question: str, analysis_result: dict, dataset_name: str = 
 
 
 def _generate_llm_grounded_text(question: str, task: str, value, engine_msg: str) -> str:
-    """Calls Gemini to rephrase the verified computation cleanly."""
+    """Calls Ollama to rephrase the verified computation cleanly."""
     val_repr = value.to_string(index=False) if isinstance(value, pd.DataFrame) else str(value)
 
     prompt = f"""
@@ -83,6 +83,42 @@ def _generate_deterministic_text(task: str, res_type: str, value, engine_msg: st
     elif res_type == "table" and isinstance(value, pd.DataFrame):
         rows_count = len(value)
         return f"**[Result]**: {engine_msg}\n\n*Displaying {rows_count} relevant record(s) in the table below.*"
+
+    elif res_type == "modified_dataset":
+        return f"**[KDD Data Transformation]**: {engine_msg}\n\n*The modified dataset is updated in memory and available for download below the Ask button.*"
+
+    elif res_type == "ml_model" and isinstance(value, dict):
+        model_name = value.get("model", "Machine Learning Model")
+        target = value.get("target", "Target")
+        if "accuracy" in value:
+            # Classification
+            acc = value["accuracy"] * 100
+            f1 = value["f1_score"]
+            prec = value["precision"]
+            rec = value["recall"]
+            return (
+                f"**[Machine Learning Model Trained]**: {model_name} on target `{target}`\n\n"
+                f"- **Accuracy**: {acc:.1f}%\n"
+                f"- **F1-Score**: {f1:.3f}\n"
+                f"- **Precision**: {prec:.3f}\n"
+                f"- **Recall**: {rec:.3f}\n\n"
+                f"*Evaluation computed on 25% held-out test split. Confusion matrix visualized in the chart panel below.*"
+            )
+        elif "r2" in value:
+            # Regression
+            mae = value["mae"]
+            rmse = value["rmse"]
+            r2 = value["r2"]
+            return (
+                f"**[Regression Model Trained]**: {model_name} on target `{target}`\n\n"
+                f"- **R² Score (Goodness of Fit)**: {r2:.3f}\n"
+                f"- **Mean Absolute Error (MAE)**: {mae:,.2f}\n"
+                f"- **Root Mean Squared Error (RMSE)**: {rmse:,.2f}\n\n"
+                f"*Actual vs Predicted scatter plot displayed below.*"
+            )
+
+    elif res_type == "cluster_result":
+        return f"**[Unsupervised Clustering]**: {engine_msg}\n\n*Cluster centroid summary displayed in the table below and visualized in the cluster scatter plot.*"
 
     return f"**[Result]**: {engine_msg}"
 

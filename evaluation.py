@@ -140,6 +140,48 @@ BENCHMARK_TEST_SUITE = [
     },
     {
         "id": "TC-12",
+        "question": "Detect outliers in Salary",
+        "expected_intent": "data_quality",
+        "expected_task": "detect_outliers",
+        "expected_type": "table",
+        "expected_table_rows": 0,  # in sample_data.csv salary has 0 IQR outliers
+        "is_supported": True,
+    },
+    {
+        "id": "TC-13",
+        "question": "Remove duplicate rows",
+        "expected_intent": "data_quality",
+        "expected_task": "drop_duplicates",
+        "expected_type": "modified_dataset",
+        "is_supported": True,
+    },
+    {
+        "id": "TC-14",
+        "question": "Normalize Salary",
+        "expected_intent": "aggregation",
+        "expected_task": "normalize",
+        "expected_type": "modified_dataset",
+        "is_supported": True,
+    },
+    {
+        "id": "TC-15",
+        "question": "Cluster records into 3 groups",
+        "expected_intent": "group_comparison",
+        "expected_task": "kmeans_cluster",
+        "expected_type": "cluster_result",
+        "is_supported": True,
+    },
+    {
+        "id": "TC-16",
+        "question": "Select only Name and Salary",
+        "expected_intent": "filtering",
+        "expected_task": "select_columns",
+        "expected_type": "table",
+        "expected_table_rows": 15,
+        "is_supported": True,
+    },
+    {
+        "id": "TC-17",
         "question": "Predict future bitcoin prices for 2030",
         "expected_intent": "unsupported",
         "expected_task": None,
@@ -232,6 +274,10 @@ def run_full_evaluation():
                         if len(actual_val) == tc["expected_table_rows"]:
                             test_passed = True
                             correct_answers += 1
+                elif tc["expected_type"] in ["modified_dataset", "cluster_result"]:
+                    if res_type == tc["expected_type"] or res.get("modified_df") is not None:
+                        test_passed = True
+                        correct_answers += 1
 
         results_table.append({
             "ID": qid,

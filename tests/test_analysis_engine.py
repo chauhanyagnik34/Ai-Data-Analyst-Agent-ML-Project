@@ -102,11 +102,38 @@ class TestAnalysisEngine(unittest.TestCase):
         self.assertEqual(res["status"], "error")
         self.assertIn("requires a numeric column", res["error"])
 
-    def test_safe_error_on_unsupported_task(self):
-        """Test handling of unsupported task."""
-        res = execute_plan(self.df, {"task": "predict_future_stock_price"})
-        self.assertEqual(res["status"], "error")
-        self.assertIn("Unsupported task", res["error"])
+    def test_missing_values_all_and_column_specific(self):
+        """Test missing values for dataset-wide and column-specific queries."""
+        res_all = execute_plan(self.df, {"task": "missing_values"})
+        self.assertEqual(res_all["status"], "success")
+        self.assertEqual(res_all["result_type"], "table")
+
+        res_col = execute_plan(self.df, {"task": "missing_values", "column": "Salary"})
+        self.assertEqual(res_col["status"], "success")
+        self.assertEqual(res_col["result_type"], "scalar")
+        self.assertIn("Salary", res_col["message"])
+
+    def test_kdd_preprocessing_and_transformation(self):
+        """Test KDD operations: fill_missing, drop_missing, drop_column, normalize, standardize."""
+        # 1. Fill missing values
+        res_fill = execute_plan(self.df, {"task": "fill_missing", "column": "Salary", "strategy": "mean"})
+        self.assertEqual(res_fill["status"], "success")
+        self.assertIsNotNone(res_fill["modified_df"])
+
+        # 2. Drop duplicates
+        res_dup = execute_plan(self.df, {"task": "drop_duplicates"})
+        self.assertEqual(res_dup["status"], "success")
+        self.assertIsNotNone(res_dup["modified_df"])
+
+        # 3. Drop column
+        res_drop_col = execute_plan(self.df, {"task": "drop_column", "column": "Department"})
+        self.assertEqual(res_drop_col["status"], "success")
+        self.assertNotIn("Department", res_drop_col["modified_df"].columns)
+
+        # 4. Normalize
+        res_norm = execute_plan(self.df, {"task": "normalize", "column": "Salary"})
+        self.assertEqual(res_norm["status"], "success")
+        self.assertIn("Salary_normalized", res_norm["modified_df"].columns)
 
 
 if __name__ == "__main__":

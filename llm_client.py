@@ -1,65 +1,163 @@
 """
 llm_client.py
 -------------
-Modular API client interface for connecting to instruction-tuned LLMs.
-Uses the modern Google GenAI SDK (google-genai).
+Modular API client interface for connecting to local instruction-tuned LLMs via Ollama.
+Communicates strictly via Ollama's local HTTP API (defaults to http://localhost:11434).
 
 Features:
-- Secure API key retrieval via python-dotenv (.env)
-- Status check function (verifies key presence before network calls)
-- JSON Mode support for structured query planning
-- Graceful handling of network timeouts, quota limits, and missing keys
-- Modular architecture: easy to swap with OpenAI, Groq, or Anthropic
+- Configurable base URL and model via environment variables (OLLAMA_BASE_URL, OLLAMA_MODEL)
+- Health and model availability checks via Ollama's /api/tags endpoint
+- Conversational chat requests via Ollama's /api/chat endpoint
+- Native JSON Mode support (format="json") for structured query planning
+- Robust error handling for connection failures, missing models, timeouts, and HTTP errors
+- 100% offline, local execution with zero cloud API keys or dependencies
 """
 
 import os
 import json
+import time
+import requests
 from dotenv import load_dotenv
 
 # Load variables from .env file into os.environ
 load_dotenv()
 
-# Default model configuration
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+# Default configuration parameters
+DEFAULT_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+# Internal cache for status checks to prevent connection latency spikes
+_STATUS_CACHE = {"timestamp": 0.0, "result": None, "key": None}
 
 
-def get_api_key() -> str:
-    """Retrieves the Gemini API key from environment variables."""
-    return os.getenv("GEMINI_API_KEY", "").strip()
+def reset_status_cache():
+    """Resets the cached status result (useful for test isolation)."""
+    global _STATUS_CACHE
+    _STATUS_CACHE = {"timestamp": 0.0, "result": None, "key": None}
 
 
-def check_api_status() -> dict:
+def get_base_url() -> str:
+    """Retrieves the Ollama base URL from environment variables."""
+    url = os.getenv("OLLAMA_BASE_URL", DEFAULT_BASE_URL).strip()
+    return url.rstrip("/") if url else "http://localhost:11434"
+
+
+def get_model_name() -> str:
+    """Retrieves the Ollama model name from environment variables."""
+    model = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL).strip()
+    return model if model else "llama3.2"
+
+
+def check_api_status(
+    base_url: str = None,
+    model_name: str = None,
+    use_cache: bool = True,
+    cache_ttl: float = 5.0,
+) -> dict:
     """
-    Checks if the LLM API key is properly configured.
+    Checks if the local Ollama server is reachable and if the requested model is available.
+    Uses the /api/tags endpoint.
+
+    Parameters:
+        base_url (str, optional): Ollama server base URL.
+        model_name (str, optional): Target model name.
+        use_cache (bool): Whether to use cached check result within cache_ttl seconds.
+        cache_ttl (float): Cache duration in seconds (default 5.0s).
 
     Returns:
         dict: {
             "configured": bool,
-            "provider": "Google Gemini",
+            "provider": "Ollama",
             "model": str,
             "message": str
         }
     """
-    api_key = get_api_key()
-    placeholder_keys = ["your_gemini_api_key_here", "your_key_here", ""]
+    target_base = (base_url or get_base_url()).rstrip("/")
+    target_model = (model_name or get_model_name()).strip()
+    cache_key = (target_base, target_model)
 
-    if not api_key or api_key in placeholder_keys:
-        return {
+    if use_cache and _STATUS_CACHE["key"] == cache_key:
+        effective_ttl = 30.0 if (_STATUS_CACHE["result"] and not _STATUS_CACHE["result"].get("configured")) else cache_ttl
+        if (time.time() - _STATUS_CACHE["timestamp"]) < effective_ttl:
+            return _STATUS_CACHE["result"]
+
+    result = None
+    try:
+        response = requests.get(f"{target_base}/api/tags", timeout=1.0)
+        if response.status_code == 200:
+            data = response.json()
+            models_list = data.get("models", [])
+            available_names = [m.get("name", "") for m in models_list]
+
+            # Model names in Ollama can be "llama3.2:latest", "llama3.2", etc.
+            model_found = False
+            for m in available_names:
+                m_clean = m.lower()
+                req_clean = target_model.lower()
+                if (
+                    m_clean == req_clean
+                    or m_clean.startswith(f"{req_clean}:")
+                    or m_clean.split(":")[0] == req_clean
+                ):
+                    model_found = True
+                    break
+
+            if model_found:
+                result = {
+                    "configured": True,
+                    "provider": "Ollama",
+                    "model": target_model,
+                    "message": f"Ollama is running at {target_base} and model '{target_model}' is ready.",
+                }
+            else:
+                result = {
+                    "configured": False,
+                    "provider": "Ollama",
+                    "model": target_model,
+                    "message": (
+                        f"Ollama server is running, but model '{target_model}' was not found. "
+                        f"Please pull it by running: 'ollama pull {target_model}'"
+                    ),
+                }
+        else:
+            result = {
+                "configured": False,
+                "provider": "Ollama",
+                "model": target_model,
+                "message": f"Ollama server returned HTTP {response.status_code}.",
+            }
+
+    except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout):
+        result = {
             "configured": False,
-            "provider": "Google Gemini",
-            "model": DEFAULT_MODEL,
+            "provider": "Ollama",
+            "model": target_model,
             "message": (
-                "API key not found. Please obtain a free Gemini API key at "
-                "https://aistudio.google.com/app/apikey and add it to your .env file."
+                f"Cannot connect to Ollama at {target_base}. "
+                "Please start the Ollama server using 'ollama serve' or open the Ollama desktop app."
             ),
         }
+    except requests.exceptions.Timeout:
+        result = {
+            "configured": False,
+            "provider": "Ollama",
+            "model": target_model,
+            "message": f"Connection to Ollama server at {target_base} timed out.",
+        }
+    except Exception as e:
+        result = {
+            "configured": False,
+            "provider": "Ollama",
+            "model": target_model,
+            "message": f"Error connecting to Ollama: {str(e)}",
+        }
 
-    return {
-        "configured": True,
-        "provider": "Google Gemini",
-        "model": DEFAULT_MODEL,
-        "message": f"API key configured successfully for model '{DEFAULT_MODEL}'.",
-    }
+    if use_cache:
+        _STATUS_CACHE["timestamp"] = time.time()
+        _STATUS_CACHE["key"] = cache_key
+        _STATUS_CACHE["result"] = result
+
+    return result
 
 
 def call_llm(
@@ -67,71 +165,85 @@ def call_llm(
     system_instruction: str = None,
     json_mode: bool = False,
     model_name: str = None,
+    base_url: str = None,
+    timeout: int = 60,
 ) -> tuple:
     """
-    Calls the LLM with a prompt and returns the text response safely.
+    Calls Ollama's /api/chat endpoint with a prompt and returns the text response safely.
 
     Parameters:
         prompt (str): The user/task prompt.
         system_instruction (str, optional): System level instruction or persona.
-        json_mode (bool): When True, instructs model to return strict JSON.
-        model_name (str, optional): Target model name (defaults to GEMINI_MODEL).
+        json_mode (bool): When True, instructs model to return strict JSON using format="json".
+        model_name (str, optional): Target model name (defaults to OLLAMA_MODEL).
+        base_url (str, optional): Ollama server base URL (defaults to OLLAMA_BASE_URL).
+        timeout (int): Request timeout in seconds (default 60).
 
     Returns:
         tuple: (response_text, error_message)
                - response_text: str if successful, else None
                - error_message: str describing error, or None if successful
     """
-    status = check_api_status()
-    if not status["configured"]:
-        return None, status["message"]
+    target_base = (base_url or get_base_url()).rstrip("/")
+    target_model = (model_name or get_model_name()).strip()
 
-    target_model = model_name or DEFAULT_MODEL
-    api_key = get_api_key()
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": target_model,
+        "messages": messages,
+        "stream": False,
+        "options": {
+            "temperature": 0.1,
+        },
+    }
+
+    if json_mode:
+        payload["format"] = "json"
 
     try:
-        from google import genai
-        from google.genai import types
-
-        # Initialize the official GenAI client
-        client = genai.Client(api_key=api_key)
-
-        # Configure request options
-        config_kwargs = {"temperature": 0.1}
-
-        if system_instruction:
-            config_kwargs["system_instruction"] = system_instruction
-
-        if json_mode:
-            config_kwargs["response_mime_type"] = "application/json"
-
-        config = types.GenerateContentConfig(**config_kwargs)
-
-        # Send request to Gemini API
-        response = client.models.generate_content(
-            model=target_model,
-            contents=prompt,
-            config=config,
+        response = requests.post(
+            f"{target_base}/api/chat",
+            json=payload,
+            timeout=timeout,
         )
 
-        if not response or not response.text:
+        if response.status_code == 404:
+            return None, (
+                f"Error: Model '{target_model}' was not found on Ollama. "
+                f"Please pull it by running: 'ollama pull {target_model}'"
+            )
+        elif response.status_code != 200:
+            return None, f"Error: Ollama API returned HTTP status {response.status_code}."
+
+        res_json = response.json()
+        message_obj = res_json.get("message", {})
+        content = message_obj.get("content", "")
+
+        if not content or not content.strip():
             return None, "Error: The model returned an empty response."
 
-        output_text = response.text.strip()
+        output_text = content.strip()
 
-        # If JSON mode requested, clean possible markdown wrappers
         if json_mode:
             output_text = _clean_json_markdown(output_text)
 
         return output_text, None
 
+    except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout):
+        return None, (
+            f"Error: Cannot connect to Ollama server at {target_base}. "
+            "Please ensure Ollama is running ('ollama serve')."
+        )
+    except requests.exceptions.Timeout:
+        return None, f"Error: Request to Ollama server at {target_base} timed out after {timeout} seconds."
+    except json.JSONDecodeError:
+        return None, "Error: Failed to parse Ollama response as JSON."
     except Exception as e:
-        err_str = str(e)
-        if "API_KEY_INVALID" in err_str or "400" in err_str:
-            return None, "Error: Invalid Gemini API key. Please check the key in your .env file."
-        elif "RESOURCE_EXHAUSTED" in err_str or "429" in err_str:
-            return None, "Error: Gemini API rate limit or quota exceeded. Please wait a moment and try again."
-        return None, f"LLM API Error: {err_str}"
+        return None, f"LLM API Error: {str(e)}"
 
 
 def _clean_json_markdown(text: str) -> str:
@@ -149,7 +261,7 @@ def _clean_json_markdown(text: str) -> str:
 # Standalone demonstration block
 if __name__ == "__main__":
     print("=" * 60)
-    print("CHECKING LLM CLIENT CONFIGURATION")
+    print("CHECKING OLLAMA LLM CLIENT CONFIGURATION")
     print("=" * 60)
 
     status = check_api_status()
@@ -159,12 +271,12 @@ if __name__ == "__main__":
     print(f"Message:     {status['message']}")
 
     if status["configured"]:
-        print("\nSending a quick test ping to Gemini API...")
+        print(f"\nSending a test ping to Ollama /api/chat ({status['model']})...")
         res, err = call_llm("Return only the word: PONG", json_mode=False)
         if err:
             print(f"Ping failed: {err}")
         else:
             print(f"LLM Response: {res}")
-            print("SUCCESS: LLM client is live and operational!")
+            print("SUCCESS: Ollama LLM client is live and operational!")
     else:
-        print("\nNote: Add your free Gemini API key to .env whenever you're ready to test live calls.")
+        print("\nNote: Start Ollama with 'ollama serve' and pull your model ('ollama pull llama3.2') for live local LLM inference.")

@@ -6,6 +6,8 @@ Integrates:
 - File upload (CSV / Excel)
 - Automated data profiling and schema summary
 - Natural language query answering with Pandas
+- Full KDD Data Preprocessing, Cleaning & Imputation (fill_missing, drop_missing, drop_duplicates, drop_column, normalize)
+- Download Modified Data button right below the Ask button
 - Dynamic visualization rendering (Matplotlib)
 - Conversation history tracking
 """
@@ -23,6 +25,10 @@ from analysis_engine import execute_plan
 from response_generator import generate_response
 from visualization import create_auto_chart
 from llm_client import check_api_status
+
+# Ensure exports directory exists for modified dataset downloads
+EXPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
+os.makedirs(EXPORTS_DIR, exist_ok=True)
 
 
 # Global / Session State Helper
@@ -53,6 +59,9 @@ def on_file_upload(file_obj, current_history):
             [],    # chatbot reset
             None,  # result_table
             None,  # result_plot
+            None,  # active_df
+            "dataset",  # dataset_name_state
+            None,  # btn_download
         )
 
     file_path = file_obj.name
@@ -68,7 +77,15 @@ def on_file_upload(file_obj, current_history):
             [],
             None,
             None,
+            None,
+            dataset_name,
+            None,
         )
+
+    # Save initial export copy for downloading
+    clean_name = os.path.splitext(dataset_name)[0].replace(" ", "_")
+    export_file = os.path.join(EXPORTS_DIR, f"modified_{clean_name}.csv")
+    df.to_csv(export_file, index=False)
 
     # Compute profiling summaries
     overview = get_dataset_overview(df, dataset_name=dataset_name)
@@ -83,10 +100,30 @@ def on_file_upload(file_obj, current_history):
         f"- **Categorical Columns**: {', '.join(profile['column_types']['categorical']) or 'None'}"
     )
 
+    # Dynamic sample questions based on actual dataset columns
+    num_cols = profile["column_types"]["numerical"]
+    cat_cols = profile["column_types"]["categorical"]
+
+    if "Salary" in df.columns:
+        example_q1 = "'What is the average salary?'"
+        example_q2 = "'Show average salary by department'" if "Department" in df.columns else "'Check for missing values'"
+    elif num_cols and cat_cols:
+        example_q1 = f"'What is the average {num_cols[0]}?'"
+        example_q2 = f"'Show average {num_cols[0]} by {cat_cols[0]}'"
+    elif num_cols:
+        example_q1 = f"'What is the average {num_cols[0]}?'"
+        example_q2 = f"'What is the maximum {num_cols[0]}?'"
+    else:
+        example_q1 = "'How many rows are in this dataset?'"
+        example_q2 = "'Check for missing values'"
+
     welcome_chat = [
         {
             "role": "assistant",
-            "content": f"Hello! I have loaded `{dataset_name}` with {overview['total_rows']} rows and {overview['total_columns']} columns. You can ask questions in English like 'What is the average salary?' or 'Show average salary by department'."
+            "content": (
+                f"Hello! I have loaded `{dataset_name}` with {overview['total_rows']:,} rows and {overview['total_columns']} columns. "
+                f"You can ask questions in English like {example_q1} or {example_q2}."
+            ),
         }
     ]
 
@@ -98,43 +135,74 @@ def on_file_upload(file_obj, current_history):
         welcome_chat,                            # chatbot
         None,                                    # result_table
         None,                                    # result_plot
+        df,                                      # active_df
+        dataset_name,                            # dataset_name_state
+        export_file,                             # btn_download
     )
 
 
-def on_ask_question(question, file_obj, chat_history, context_history):
+def on_ask_question(question, active_df, dataset_name, chat_history, context_history):
     """Processes user questions via the LLM/Heuristic planner and analysis engine."""
     if not question or not question.strip():
-        return chat_history, context_history, None, None, ""
+        return (
+            chat_history,
+            context_history,
+            None,
+            None,
+            "",
+            active_df,
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
 
-    if file_obj is None:
+    if active_df is None or (isinstance(active_df, pd.DataFrame) and active_df.empty):
         new_history = list(chat_history or [])
         new_history.append({"role": "user", "content": question})
         new_history.append({"role": "assistant", "content": "Please upload a CSV or Excel dataset first."})
-        return new_history, context_history, None, None, ""
+        return (
+            new_history,
+            context_history,
+            None,
+            None,
+            "",
+            active_df,
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
 
-    # Load dataset
-    file_path = file_obj.name
-    df, err = load_dataset(file_path)
-    if err:
-        new_history = list(chat_history or [])
-        new_history.append({"role": "user", "content": question})
-        new_history.append({"role": "assistant", "content": f"Dataset error: {err}"})
-        return new_history, context_history, None, None, ""
-
+    df = active_df
+    dataset_name = dataset_name or "dataset"
     current_context = list(context_history or [])
 
     # 1. Classify Query Intent with Scikit-Learn ML Model (Viva ML Component)
     from query_classifier import classify_user_query
     ml_intent, ml_conf = classify_user_query(question)
-    ml_badge = f"\n\n*[ML Intent Classified]*: `{ml_intent}` (Confidence: {ml_conf*100:.1f}%)"
 
     # 2. Translate question into validated plan with context
     plan, plan_err = plan_query(question, df, conversation_history=current_context)
     if plan_err:
         new_history = list(chat_history or [])
         new_history.append({"role": "user", "content": question})
-        new_history.append({"role": "assistant", "content": f"**[Error]**: {plan_err}{ml_badge}"})
-        return new_history, current_context, None, None, ""
+        new_history.append({"role": "assistant", "content": f"**[Error]**: {plan_err}"})
+        return (
+            new_history,
+            current_context,
+            None,
+            None,
+            "",
+            active_df,
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
 
     # 3. Execute plan with Pandas Analysis Engine
     result = execute_plan(df, plan)
@@ -149,12 +217,11 @@ def on_ask_question(question, file_obj, chat_history, context_history):
     })
 
     # 5. Generate natural language response
-    response_text = generate_response(question, result, dataset_name=os.path.basename(file_path))
-    full_response = f"{response_text}{ml_badge}"
+    response_text = generate_response(question, result, dataset_name=dataset_name)
 
     new_history = list(chat_history or [])
     new_history.append({"role": "user", "content": question})
-    new_history.append({"role": "assistant", "content": full_response})
+    new_history.append({"role": "assistant", "content": response_text})
 
     # 6. Tabular result
     table_output = None
@@ -166,14 +233,57 @@ def on_ask_question(question, file_obj, chat_history, context_history):
     if result.get("status") == "success":
         chart_fig, _ = create_auto_chart(result, df)
 
-    return new_history, current_context, table_output, chart_fig, ""
+    # 8. Check if dataset was modified (KDD Preprocessing / Imputation / Cleaning / Transformation)
+    if result.get("modified_df") is not None:
+        updated_df = result["modified_df"]
+        clean_name = os.path.splitext(dataset_name)[0].replace(" ", "_")
+        export_file = os.path.join(EXPORTS_DIR, f"modified_{clean_name}.csv")
+        updated_df.to_csv(export_file, index=False)
+
+        overview = get_dataset_overview(updated_df, dataset_name=dataset_name)
+        profile = generate_full_profile(updated_df)
+        status_text = (
+            f"### Dataset: `{dataset_name}` *(Modified)*\n"
+            f"- **Rows**: {overview['total_rows']:,} | **Columns**: {overview['total_columns']}\n"
+            f"- **Missing Cells**: {profile['total_missing_cells']} ({profile['overall_missing_percentage']}%)\n"
+            f"- **Duplicate Rows**: {profile['duplicate_info']['duplicate_count']}\n"
+            f"- **Numerical Columns**: {', '.join(profile['column_types']['numerical']) or 'None'}\n"
+            f"- **Categorical Columns**: {', '.join(profile['column_types']['categorical']) or 'None'}"
+        )
+        return (
+            new_history,
+            current_context,
+            table_output,
+            chart_fig,
+            "",
+            updated_df,
+            export_file,
+            updated_df.head(10),
+            status_text,
+            profile["numerical_stats_table"],
+            profile["missing_summary_table"],
+        )
+
+    return (
+        new_history,
+        current_context,
+        table_output,
+        chart_fig,
+        "",
+        active_df,
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+    )
 
 
 def on_load_sample_dataset():
     """Loads the pre-packaged sample dataset for instant demonstration."""
     sample_path = os.path.join("datasets", "sample_data.csv")
     if not os.path.exists(sample_path):
-        return None, "Sample dataset not found.", None, None, [], None, None
+        return None, "Sample dataset not found.", None, None, [], None, None, None, "dataset", None
 
     class DummyFile:
         def __init__(self, path):
@@ -196,6 +306,9 @@ def on_clear():
         None,  # result table
         None,  # result plot
         "",    # input box
+        None,  # active_df
+        "dataset",  # dataset_name_state
+        None,  # btn_download
     )
 
 
@@ -205,9 +318,9 @@ def on_clear():
 
 api_status = check_api_status()
 api_status_badge = (
-    "🟢 **API Key**: Configured (Live Gemini LLM)"
+    f"🟢 **LLM**: Connected (Ollama - {api_status['model']})"
     if api_status["configured"]
-    else "🟡 **Mode**: Heuristic Fallback (Add Gemini API key in .env for full LLM power)"
+    else f"🟡 **Mode**: Heuristic Fallback ({api_status['message']})"
 )
 
 custom_css = """
@@ -232,13 +345,18 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
         <div class="app-header">
             <h1 style="margin:0; font-size: 26px;">🤖 AI Data Analyst Agent</h1>
             <p style="margin:4px 0 0 0; font-size: 14px; opacity: 0.9;">
-                Natural-Language Conversational Tabular Analysis Powered by Pandas, Scikit-Learn & Gemini
+                Natural-Language Conversational Tabular Analysis Powered by Pandas, Scikit-Learn & Ollama
             </p>
         </div>
         """
     )
 
     gr.Markdown(f"{api_status_badge} | **Supported Formats**: `.csv`, `.xlsx`, `.xls`")
+
+    # Reactive states for session management
+    active_df = gr.State(None)
+    dataset_name_state = gr.State("dataset")
+    context_history = gr.State([])
 
     with gr.Row():
         # LEFT COLUMN: File Upload & Profiling
@@ -269,16 +387,24 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
                 height=350,
             )
 
+            # Query input and actions row (Ask button + Download button below)
             with gr.Row():
                 query_input = gr.Textbox(
                     label="Ask a question about your data",
-                    placeholder="e.g., Check missing values | Correlation matrix | Total rows | Top 5 records",
-                    scale=8,
+                    placeholder="e.g., Check missing values | Fill missing values in Age by mean | Correlation matrix",
+                    scale=7,
                 )
-                btn_send = gr.Button("Ask", variant="primary", scale=2)
+                with gr.Column(scale=3):
+                    btn_send = gr.Button("Ask", variant="primary")
+                    btn_download = gr.DownloadButton(
+                        "📥 Download Modified Data",
+                        variant="secondary",
+                        size="sm",
+                        visible=True,
+                    )
 
-            # Quick Question Suggestions - General Tasks & Sample Prompts
-            gr.Markdown("**🌐 Quick Prompts — General Tasks (Works on any dataset):**")
+            # Quick Question Suggestions - General Tasks & KDD Operations
+            gr.Markdown("**🌐 Quick Prompts — General Tasks & KDD Operations:**")
             with gr.Row():
                 btn_missing = gr.Button("🔍 Missing Values", size="sm")
                 btn_corr = gr.Button("📈 Correlation Matrix", size="sm")
@@ -286,6 +412,8 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
                 btn_cols = gr.Button("📊 Total Columns", size="sm")
                 btn_dups = gr.Button("👥 Duplicate Rows", size="sm")
                 btn_top = gr.Button("📋 Top 5 Records", size="sm")
+                btn_outliers = gr.Button("⚠️ Detect Outliers", size="sm")
+                btn_cluster = gr.Button("🎯 Cluster Data", size="sm")
 
             with gr.Accordion("💼 Sample Dataset Prompts (Employee Data)", open=False):
                 with gr.Row():
@@ -302,10 +430,7 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
     # UI Interactions & Event Wiring
     # -------------------------------------------------------------
 
-    # Conversational state tracking
-    context_history = gr.State([])
-
-    # File upload event (resets context history)
+    # File upload event
     file_input.change(
         fn=lambda f, c: on_file_upload(f, c) + ([],),
         inputs=[file_input, chatbot],
@@ -317,11 +442,14 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
             chatbot,
             result_table,
             result_plot,
+            active_df,
+            dataset_name_state,
+            btn_download,
             context_history,
         ],
     )
 
-    # Load sample dataset button (resets context history)
+    # Load sample dataset button
     btn_load_sample.click(
         fn=lambda: on_load_sample_dataset() + ([],),
         inputs=[],
@@ -333,74 +461,70 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
             chatbot,
             result_table,
             result_plot,
+            active_df,
+            dataset_name_state,
+            btn_download,
             context_history,
         ],
     )
 
     # Question asking triggers
-    btn_send.click(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
-    )
-    query_input.submit(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
-    )
+    ask_inputs = [query_input, active_df, dataset_name_state, chatbot, context_history]
+    ask_outputs = [
+        chatbot,
+        context_history,
+        result_table,
+        result_plot,
+        query_input,
+        active_df,
+        btn_download,
+        preview_df,
+        status_markdown,
+        numerical_stats_df,
+        missing_summary_df,
+    ]
+
+    btn_send.click(fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs)
+    query_input.submit(fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs)
 
     # General task quick prompt buttons
     btn_missing.click(lambda: "Check for missing values in this dataset", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     btn_corr.click(lambda: "Show correlation between numerical columns", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     btn_rows.click(lambda: "How many rows are in this dataset?", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     btn_cols.click(lambda: "How many columns are in this dataset?", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     btn_dups.click(lambda: "Check for duplicate rows in this dataset", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     btn_top.click(lambda: "Show the top 5 records", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
+    )
+    btn_outliers.click(lambda: "Detect outliers in the numerical columns", None, query_input).then(
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
+    )
+    btn_cluster.click(lambda: "Cluster records into 3 groups using KMeans", None, query_input).then(
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
 
     # Sample employee quick prompt buttons
     q1.click(lambda: "What is the average salary?", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     q2.click(lambda: "Show average salary by department", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     q3.click(lambda: "Top 3 employees by salary", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
     q4.click(lambda: "Filter employees with salary greater than 70000", None, query_input).then(
-        fn=on_ask_question,
-        inputs=[query_input, file_input, chatbot, context_history],
-        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+        fn=on_ask_question, inputs=ask_inputs, outputs=ask_outputs
     )
 
     # Clear button (resets all visual components and context state)
@@ -417,6 +541,9 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
             result_table,
             result_plot,
             query_input,
+            active_df,
+            dataset_name_state,
+            btn_download,
             context_history,
         ],
     )

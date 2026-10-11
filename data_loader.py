@@ -20,12 +20,13 @@ SUPPORTED_EXTENSIONS = [".csv", ".xlsx", ".xls"]
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024
 
 
-def load_dataset(file_path: str):
+def load_dataset(file_path: str, sheet_name=None):
     """
     Safely loads a CSV or Excel file into a Pandas DataFrame.
 
     Parameters:
         file_path (str): Full path to the uploaded file.
+        sheet_name (str or int, optional): Excel sheet name or index to load.
 
     Returns:
         tuple: (df, error_message)
@@ -56,21 +57,43 @@ def load_dataset(file_path: str):
         size_mb = file_size / (1024 * 1024)
         return None, f"Error: File size ({size_mb:.1f} MB) exceeds maximum allowed limit of 25 MB."
 
-    # 5. Attempt to load the data using Pandas
+    # 5. Attempt to load the data using Pandas with encoding fallback
     try:
         if extension == ".csv":
-            # Read CSV; handle UTF-8 and fallback encoding if needed
-            df = pd.read_csv(file_path)
+            encodings = ["utf-8", "latin1", "cp1252", "iso-8859-1"]
+            df = None
+            last_err = None
+            for enc in encodings:
+                try:
+                    df = pd.read_csv(file_path, encoding=enc)
+                    break
+                except UnicodeDecodeError as ue:
+                    last_err = ue
+                    continue
+            if df is None:
+                return None, f"Error decoding CSV file across supported encodings: {last_err}"
         else:
-            # Read Excel file using openpyxl engine
-            df = pd.read_excel(file_path)
+            # Excel file loading
+            excel_file = pd.ExcelFile(file_path)
+            target_sheet = sheet_name if sheet_name is not None else excel_file.sheet_names[0]
+            df = pd.read_excel(excel_file, sheet_name=target_sheet)
 
-        # 5. Check if dataset is empty
-        if df is None or df.empty:
-            return None, "Error: The uploaded file is empty (contains 0 rows)."
+        # 6. Check if dataset is empty
+        if df is None or df.empty or len(df.columns) == 0:
+            return None, "Error: The uploaded file is empty (contains 0 rows or 0 columns)."
 
-        # 6. Clean column names (strip leading/trailing whitespace)
-        df.columns = [str(col).strip() for col in df.columns]
+        # 7. Clean column names (strip leading/trailing whitespace) and deduplicate
+        cleaned_cols = []
+        counts = {}
+        for col in df.columns:
+            name = str(col).strip() if str(col).strip() else "Unnamed"
+            if name in counts:
+                counts[name] += 1
+                cleaned_cols.append(f"{name}_{counts[name]}")
+            else:
+                counts[name] = 0
+                cleaned_cols.append(name)
+        df.columns = cleaned_cols
 
         return df, None
 

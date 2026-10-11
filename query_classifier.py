@@ -141,6 +141,16 @@ SAMPLE_QUERIES_DATASET = [
     ("Generate a bar chart of revenue", "visualization"),
     ("Display a histogram showing salary spread", "visualization"),
     ("Plot a scatter diagram", "visualization"),
+    ("Create piechart for Embarked column", "visualization"),
+    ("Create a pie chart for Sex", "visualization"),
+    ("Show bar chart of Sex", "visualization"),
+    ("Plot histogram for Age", "visualization"),
+    ("Create line graph for Fare", "visualization"),
+    ("Plot Age vs Fare", "visualization"),
+    ("Show boxplot for Age", "visualization"),
+    ("Show count plot of Embarked", "visualization"),
+    ("Create correlation heatmap", "visualization"),
+    ("Draw a box plot of salary", "visualization"),
 
     # data_quality
     ("Are there any missing values in this dataset?", "data_quality"),
