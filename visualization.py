@@ -208,6 +208,45 @@ def create_scatter_plot(
         return None, f"Error generating scatter plot: {str(e)}"
 
 
+def create_correlation_heatmap(corr_df: pd.DataFrame) -> tuple:
+    """
+    Renders a clear, stylish heatmap for numerical correlation matrix.
+    """
+    if corr_df is None or corr_df.empty:
+        return None, "Cannot generate correlation heatmap: Data is empty."
+
+    try:
+        plot_df = corr_df.copy()
+        if "Variable" in plot_df.columns:
+            plot_df = plot_df.set_index("Variable")
+        plot_df = plot_df.select_dtypes(include=[np.number])
+        if plot_df.empty or len(plot_df.columns) < 2:
+            return None, "At least two numerical columns are required for a correlation heatmap."
+
+        fig, ax = plt.subplots(figsize=(7, 5))
+        cax = ax.matshow(plot_df.values, cmap="coolwarm", vmin=-1, vmax=1)
+        fig.colorbar(cax, shrink=0.8, pad=0.04)
+
+        ax.set_xticks(range(len(plot_df.columns)))
+        ax.set_yticks(range(len(plot_df.index)))
+        ax.set_xticklabels(plot_df.columns, rotation=45, ha="left", fontsize=9)
+        ax.set_yticklabels(plot_df.index, fontsize=9)
+
+        for i in range(len(plot_df.index)):
+            for j in range(len(plot_df.columns)):
+                val = plot_df.iloc[i, j]
+                text_color = "white" if abs(val) > 0.55 else "black"
+                ax.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontsize=8, fontweight="bold")
+
+        ax.set_title("Pearson Correlation Heatmap", pad=25, fontsize=12, fontweight="bold")
+        plt.tight_layout()
+        return fig, None
+
+    except Exception as e:
+        plt.close("all")
+        return None, f"Error generating correlation heatmap: {str(e)}"
+
+
 def create_auto_chart(analysis_result: dict, original_df: pd.DataFrame) -> tuple:
     """
     Automatically selects and renders the most appropriate chart
@@ -240,7 +279,19 @@ def create_auto_chart(analysis_result: dict, original_df: pd.DataFrame) -> tuple
         if len(cat_cols) > 0 and len(num_cols) > 0:
             return create_bar_chart(chart_data, x_col=cat_cols[0], y_col=num_cols[-1])
 
-    # 3. Scalar aggregations (Mean / Median / Sum) -> Histogram showing overall distribution with mean line
+    # 3. Correlation Matrix -> Heatmap
+    elif task in ["correlation", "corr"] and isinstance(chart_data, pd.DataFrame):
+        return create_correlation_heatmap(chart_data)
+
+    # 4. Missing Values Breakdown -> Bar Chart if missing values exist
+    elif task in ["missing_values", "null_values"]:
+        val = analysis_result.get("value")
+        if isinstance(val, pd.DataFrame) and "Missing_Count" in val.columns:
+            has_missing = val[val["Missing_Count"] > 0]
+            if not has_missing.empty:
+                return create_bar_chart(has_missing, x_col="Column", y_col="Missing_Count", title="Missing Values per Column")
+
+    # 5. Scalar aggregations (Mean / Median / Sum) -> Histogram showing overall distribution with mean line
     elif task in ["mean", "median", "sum", "std"] and original_df is not None:
         col = analysis_result.get("task_column")
         # If task column is available in original_df

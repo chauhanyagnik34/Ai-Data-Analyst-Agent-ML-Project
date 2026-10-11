@@ -272,18 +272,27 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
             with gr.Row():
                 query_input = gr.Textbox(
                     label="Ask a question about your data",
-                    placeholder="e.g., What is the average salary? | Show salary by department | Top 3 employees",
+                    placeholder="e.g., Check missing values | Correlation matrix | Total rows | Top 5 records",
                     scale=8,
                 )
                 btn_send = gr.Button("Ask", variant="primary", scale=2)
 
-            # Quick Question Suggestions
-            gr.Markdown("**Quick Prompts:**")
+            # Quick Question Suggestions - General Tasks & Sample Prompts
+            gr.Markdown("**🌐 Quick Prompts — General Tasks (Works on any dataset):**")
             with gr.Row():
-                q1 = gr.Button("Average Salary", size="sm")
-                q2 = gr.Button("Salary by Department", size="sm")
-                q3 = gr.Button("Top 3 Salaries", size="sm")
-                q4 = gr.Button("Salary > 70000", size="sm")
+                btn_missing = gr.Button("🔍 Missing Values", size="sm")
+                btn_corr = gr.Button("📈 Correlation Matrix", size="sm")
+                btn_rows = gr.Button("🔢 Total Rows", size="sm")
+                btn_cols = gr.Button("📊 Total Columns", size="sm")
+                btn_dups = gr.Button("👥 Duplicate Rows", size="sm")
+                btn_top = gr.Button("📋 Top 5 Records", size="sm")
+
+            with gr.Accordion("💼 Sample Dataset Prompts (Employee Data)", open=False):
+                with gr.Row():
+                    q1 = gr.Button("Average Salary", size="sm")
+                    q2 = gr.Button("Salary by Department", size="sm")
+                    q3 = gr.Button("Top 3 Salaries", size="sm")
+                    q4 = gr.Button("Salary > 70000", size="sm")
 
             with gr.Accordion("📊 Detailed Results & Charts", open=True):
                 result_table = gr.Dataframe(label="Query Result Table", interactive=False)
@@ -340,7 +349,39 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
         outputs=[chatbot, context_history, result_table, result_plot, query_input],
     )
 
-    # Quick prompt buttons
+    # General task quick prompt buttons
+    btn_missing.click(lambda: "Check for missing values in this dataset", None, query_input).then(
+        fn=on_ask_question,
+        inputs=[query_input, file_input, chatbot, context_history],
+        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+    )
+    btn_corr.click(lambda: "Show correlation between numerical columns", None, query_input).then(
+        fn=on_ask_question,
+        inputs=[query_input, file_input, chatbot, context_history],
+        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+    )
+    btn_rows.click(lambda: "How many rows are in this dataset?", None, query_input).then(
+        fn=on_ask_question,
+        inputs=[query_input, file_input, chatbot, context_history],
+        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+    )
+    btn_cols.click(lambda: "How many columns are in this dataset?", None, query_input).then(
+        fn=on_ask_question,
+        inputs=[query_input, file_input, chatbot, context_history],
+        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+    )
+    btn_dups.click(lambda: "Check for duplicate rows in this dataset", None, query_input).then(
+        fn=on_ask_question,
+        inputs=[query_input, file_input, chatbot, context_history],
+        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+    )
+    btn_top.click(lambda: "Show the top 5 records", None, query_input).then(
+        fn=on_ask_question,
+        inputs=[query_input, file_input, chatbot, context_history],
+        outputs=[chatbot, context_history, result_table, result_plot, query_input],
+    )
+
+    # Sample employee quick prompt buttons
     q1.click(lambda: "What is the average salary?", None, query_input).then(
         fn=on_ask_question,
         inputs=[query_input, file_input, chatbot, context_history],

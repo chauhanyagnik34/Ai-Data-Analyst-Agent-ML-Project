@@ -111,7 +111,17 @@ def validate_plan(plan: dict, df: pd.DataFrame) -> tuple:
     col = plan.get("column")
     if task in ["mean", "median", "sum", "std", "min", "max", "sort", "top_n", "bottom_n"]:
         if not col:
-            return None, f"Validation Error: Task '{task}' requires a 'column' parameter."
+            # Default to first numeric column for top_n / bottom_n
+            num_cols = get_column_types(df)["numerical"]
+            if num_cols:
+                col = num_cols[0]
+                plan["column"] = col
+            elif len(df.columns) > 0:
+                col = df.columns[0]
+                plan["column"] = col
+            else:
+                return None, f"Validation Error: Task '{task}' requires a 'column' parameter."
+
         matched_col = _resolve_column_name(df, col)
         if not matched_col:
             return None, f"Validation Error: Column '{col}' does not exist in dataset."

@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Default model configuration
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 
 def get_api_key() -> str:
