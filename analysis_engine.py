@@ -743,18 +743,18 @@ def execute_plan(df: pd.DataFrame, plan: dict) -> dict:
                 return _error(task, err)
             act_col = _resolve_col_case(df, col_target)
             grp = plan.get("group_by")
-            if grp:
+            if grp and _resolve_col_case(df, grp) != act_col:
                 act_grp = _resolve_col_case(df, grp)
                 if pd.api.types.is_numeric_dtype(df[act_col]):
-                    grouped = df.groupby(act_grp)[act_col].mean().round(2).reset_index()
+                    s = df.groupby(act_grp)[act_col].mean().round(2)
                 else:
-                    grouped = df.groupby(act_grp)[act_col].count().reset_index()
-                grouped.columns = [act_grp, f"{act_col}_value"]
+                    s = df.groupby(act_grp)[act_col].count()
+                grouped = pd.DataFrame({str(act_grp): s.index, f"{act_col}_value": s.values})
                 msg = f"Generated bar chart for '{act_col}' grouped by '{act_grp}'."
                 return _success(task, "table", grouped, msg, task_column=act_col, chart_data=grouped)
             else:
-                vc = df[act_col].value_counts().head(15).reset_index()
-                vc.columns = [act_col, "Count"]
+                s = df[act_col].value_counts().head(15)
+                vc = pd.DataFrame({str(act_col): s.index, "Count": s.values})
                 msg = f"Generated bar chart / count plot for '{act_col}'."
                 return _success(task, "table", vc, msg, task_column=act_col, chart_data=vc)
 
@@ -1484,12 +1484,47 @@ def execute_plan(df: pd.DataFrame, plan: dict) -> dict:
             idx = plan.get("index") or group_by
             p_cols = plan.get("pivot_columns") or plan.get("columns")
             vals = plan.get("values") or column
+
+            # If vals is 'count' or not in df, try plan.get("column") or target column
+            lower_cols = {c.lower(): c for c in df.columns}
+            if not vals or str(vals).lower() not in lower_cols:
+                if column and str(column).lower() in lower_cols:
+                    vals = column
+                elif "Survived" in df.columns:
+                    vals = "Survived"
+                else:
+                    num_cols = df.select_dtypes(include=[np.number]).columns
+                    vals = num_cols[0] if len(num_cols) > 0 else df.columns[-1]
+
             if not idx or not p_cols or not vals:
                 return _error(task, "Pivot table requires 'index', 'pivot_columns', and 'values'.")
-            actual_idx = _resolve_col_case(df, idx)
+
+            # Resolve index (could be list or string)
+            if isinstance(idx, list):
+                actual_idx = [_resolve_col_case(df, x) for x in idx if _resolve_col_case(df, x)]
+                if len(actual_idx) == 1:
+                    actual_idx = actual_idx[0]
+            else:
+                actual_idx = _resolve_col_case(df, idx)
+
             actual_p_cols = _resolve_col_case(df, p_cols)
             actual_vals = _resolve_col_case(df, vals)
-            pivot_res = pd.pivot_table(df, index=actual_idx, columns=actual_p_cols, values=actual_vals, aggfunc=aggregation or "mean").round(2).reset_index()
+
+            # If index and columns overlap, remove overlap from index
+            if isinstance(actual_idx, list) and actual_p_cols in actual_idx:
+                actual_idx = [x for x in actual_idx if x != actual_p_cols]
+                if len(actual_idx) == 1:
+                    actual_idx = actual_idx[0]
+            elif actual_idx == actual_p_cols:
+                other_cats = [c for c in df.select_dtypes(include=["object", "category", int]).columns if c != actual_idx]
+                if other_cats:
+                    actual_p_cols = other_cats[0]
+
+            agg_f = aggregation or "mean"
+            if agg_f == "count":
+                agg_f = "size"
+
+            pivot_res = pd.pivot_table(df, index=actual_idx, columns=actual_p_cols, values=actual_vals, aggfunc=agg_f).round(2).reset_index()
             msg = f"Pivot table of '{actual_vals}' by '{actual_idx}' and '{actual_p_cols}'."
             return _success(task, "table", pivot_res, msg)
 

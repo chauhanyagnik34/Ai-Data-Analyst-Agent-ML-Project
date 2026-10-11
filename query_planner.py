@@ -15,6 +15,7 @@ Zero dynamic code evaluation (no eval/exec).
 import json
 import re
 import pandas as pd
+import numpy as np
 from llm_client import call_llm, check_api_status
 from data_profiler import get_column_types
 

@@ -13,8 +13,10 @@ Integrates:
 """
 
 import os
+import re
 import gradio as gr
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Import project modules
@@ -24,7 +26,7 @@ from query_planner import plan_query
 from analysis_engine import execute_plan
 from response_generator import generate_response
 from visualization import create_auto_chart
-from llm_client import check_api_status
+from llm_client import check_api_status, call_llm
 
 # Ensure exports directory exists for modified dataset downloads
 EXPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
@@ -103,16 +105,18 @@ def on_file_upload(file_obj, current_history):
     # Dynamic sample questions based on actual dataset columns
     num_cols = profile["column_types"]["numerical"]
     cat_cols = profile["column_types"]["categorical"]
+    valid_num_cols = [c for c in num_cols if not c.lower().endswith("id") and c.lower() != "id"]
+    chosen_num = valid_num_cols[0] if valid_num_cols else (num_cols[0] if num_cols else None)
 
     if "Salary" in df.columns:
         example_q1 = "'What is the average salary?'"
         example_q2 = "'Show average salary by department'" if "Department" in df.columns else "'Check for missing values'"
-    elif num_cols and cat_cols:
-        example_q1 = f"'What is the average {num_cols[0]}?'"
-        example_q2 = f"'Show average {num_cols[0]} by {cat_cols[0]}'"
-    elif num_cols:
-        example_q1 = f"'What is the average {num_cols[0]}?'"
-        example_q2 = f"'What is the maximum {num_cols[0]}?'"
+    elif chosen_num and cat_cols:
+        example_q1 = f"'What is the average {chosen_num}?'"
+        example_q2 = f"'Create pie chart for {cat_cols[0]}' or 'Show average {chosen_num} by {cat_cols[0]}'"
+    elif chosen_num:
+        example_q1 = f"'What is the average {chosen_num}?'"
+        example_q2 = f"'Plot histogram for {chosen_num}'"
     else:
         example_q1 = "'How many rows are in this dataset?'"
         example_q2 = "'Check for missing values'"
@@ -138,6 +142,68 @@ def on_file_upload(file_obj, current_history):
         df,                                      # active_df
         dataset_name,                            # dataset_name_state
         export_file,                             # btn_download
+    )
+
+
+def _is_conversational_query(question: str) -> bool:
+    """Detects whether a user message is a greeting or general conversational query."""
+    q_clean = (question or "").strip().lower()
+    greetings = {
+        "hi", "hello", "hey", "hola", "greetings", "good morning", "good afternoon",
+        "good evening", "howdy", "sup", "yo", "who are you", "who are you?",
+        "what can you do", "what can you do?", "help", "how to use", "how do i use this",
+        "thanks", "thank you"
+    }
+    if q_clean in greetings:
+        return True
+    words = re.findall(r"\b\w+\b", q_clean)
+    if len(words) <= 3 and any(w in greetings for w in words):
+        analytical_keywords = {
+            "average", "mean", "median", "sum", "count", "max", "min", "std", "chart",
+            "plot", "histogram", "pie", "bar", "box", "scatter", "missing", "null",
+            "filter", "predict", "train", "cluster", "drop", "fill"
+        }
+        if not any(w in words for w in analytical_keywords):
+            return True
+    return False
+
+
+def _generate_conversational_reply(question: str, df: pd.DataFrame, dataset_name: str) -> str:
+    """Uses Ollama (llama3.2) to generate a warm, conversational answer with dataset context."""
+    status = check_api_status()
+    if status.get("configured"):
+        cols_summary = ", ".join(df.columns[:20]) if df is not None and not df.empty else "None"
+        num_cols = ", ".join(df.select_dtypes(include=[np.number]).columns[:5]) if df is not None and not df.empty else "None"
+        cat_cols = ", ".join(df.select_dtypes(include=["object", "category"]).columns[:5]) if df is not None and not df.empty else "None"
+        total_rows = len(df) if df is not None else 0
+        total_cols = len(df.columns) if df is not None else 0
+
+        sys_prompt = (
+            "You are ADAA (AI Data Analyst Agent), a helpful and expert AI data science copilot powered by Ollama (llama3.2).\n"
+            f"Active dataset: '{dataset_name}' with {total_rows:,} rows and {total_cols} columns.\n"
+            f"Columns: {cols_summary}.\n"
+            f"Key numerical columns: {num_cols}. Key categorical columns: {cat_cols}.\n\n"
+            "Instructions:\n"
+            "1. If the user is greeting you (e.g. 'hi', 'hello') or asking who you are or what you can do, greet them warmly and introduce yourself as their AI Data Analyst Agent. Mention the dataset name and rows/columns, and suggest 3-4 concrete questions they can ask you to execute (e.g., statistics, data quality, charts like pie/bar charts, machine learning).\n"
+            "2. If the user asks for data analysis advice or questions about the dataset, provide clear, concise insights and suggest next queries to execute.\n"
+            "3. Keep the answer friendly, professional, concise, and formatted in clean markdown without any system error text."
+        )
+        reply, err = call_llm(question, system_instruction=sys_prompt, timeout=45)
+        if not err and reply and reply.strip():
+            return reply.strip()
+
+    # Deterministic fallback if Ollama is unreachable
+    col_sample = df.columns[1] if df is not None and len(df.columns) > 1 else (df.columns[0] if df is not None and len(df.columns) > 0 else "data")
+    return (
+        f"**Hello! I am your AI Data Analyst Agent.**\n\n"
+        f"I have loaded **`{dataset_name}`** with **{len(df):,} rows** and **{len(df.columns)} columns**.\n\n"
+        f"You can ask me questions to execute on this dataset, such as:\n"
+        f"- *'What is the average {col_sample}?'*\n"
+        f"- *'Create a pie chart for {col_sample}'*\n"
+        f"- *'Show missing values across all columns'*\n"
+        f"- *'Plot histogram for {col_sample}'*\n"
+        f"- *'Train a Random Forest model'* or *'Show data quality report'*\n\n"
+        f"What would you like to analyze?"
     )
 
 
@@ -180,16 +246,43 @@ def on_ask_question(question, active_df, dataset_name, chat_history, context_his
     dataset_name = dataset_name or "dataset"
     current_context = list(context_history or [])
 
-    # 1. Classify Query Intent with Scikit-Learn ML Model (Viva ML Component)
+    # 1. If user message is a greeting or general conversational query, reply via Ollama (llama3.2)
+    if _is_conversational_query(question):
+        reply = _generate_conversational_reply(question, df, dataset_name)
+        new_history = list(chat_history or [])
+        new_history.append({"role": "user", "content": question})
+        new_history.append({"role": "assistant", "content": reply})
+        return (
+            new_history,
+            current_context,
+            None,
+            None,
+            "",
+            active_df,
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
+
+    # 2. Classify Query Intent with Scikit-Learn ML Model (Viva ML Component)
     from query_classifier import classify_user_query
     ml_intent, ml_conf = classify_user_query(question)
 
-    # 2. Translate question into validated plan with context
+    # 3. Translate question into validated plan with context
     plan, plan_err = plan_query(question, df, conversation_history=current_context)
     if plan_err:
+        # If the error is a column misspelling ("Did you mean: ..."), show notice
+        if "did you mean" in plan_err.lower() or "not found" in plan_err.lower():
+            err_reply = f"**[Notice]**: {plan_err}"
+        else:
+            # Answer conversationally using Ollama (llama3.2) with dataset context
+            err_reply = _generate_conversational_reply(question, df, dataset_name)
+
         new_history = list(chat_history or [])
         new_history.append({"role": "user", "content": question})
-        new_history.append({"role": "assistant", "content": f"**[Error]**: {plan_err}"})
+        new_history.append({"role": "assistant", "content": err_reply})
         return (
             new_history,
             current_context,
