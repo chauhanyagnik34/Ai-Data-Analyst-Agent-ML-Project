@@ -321,6 +321,28 @@ def _normalize_llm_plan(plan: dict, df: pd.DataFrame, question: str = "") -> dic
         elif "older" in q or "greater" in q or "more than" in q:
             p["operator"] = ">"
 
+    if task in ["normalize", "standardize", "robust_scale", "log_transform"]:
+        col = p.get("column")
+        if col and not _resolve_column_name(df, col):
+            base = str(col).replace("_normalized", "").replace("_scaled", "").replace("_std", "")
+            if _resolve_column_name(df, base):
+                p["column"] = _resolve_column_name(df, base)
+            elif "age" in q and "Age" in df.columns:
+                p["column"] = "Age"
+            elif "fare" in q and "Fare" in df.columns:
+                p["column"] = "Fare"
+
+    if task in ["feature_importance", "train_classification", "model_comparison"]:
+        tgt = p.get("target")
+        if not tgt or not _resolve_column_name(df, tgt):
+            if "Survived" in df.columns:
+                p["target"] = "Survived"
+            elif "target" in df.columns:
+                p["target"] = "target"
+            else:
+                cat_cols = df.select_dtypes(include=["object", "category", int]).columns
+                p["target"] = cat_cols[-1] if len(cat_cols) > 0 else df.columns[-1]
+
     return p
 
 
