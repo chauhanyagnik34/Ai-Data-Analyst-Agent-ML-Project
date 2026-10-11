@@ -11,6 +11,8 @@ matplotlib>=3.8.0
 
 # Web User Interface
 gradio>=4.20.0
+fastapi>=0.110.0
+uvicorn>=0.24.0
 
 # Environment variables and configuration
 python-dotenv>=1.0.1

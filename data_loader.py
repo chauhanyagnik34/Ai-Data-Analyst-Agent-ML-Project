@@ -74,9 +74,9 @@ def load_dataset(file_path: str, sheet_name=None):
                 return None, f"Error decoding CSV file across supported encodings: {last_err}"
         else:
             # Excel file loading
-            excel_file = pd.ExcelFile(file_path)
-            target_sheet = sheet_name if sheet_name is not None else excel_file.sheet_names[0]
-            df = pd.read_excel(excel_file, sheet_name=target_sheet)
+            with pd.ExcelFile(file_path) as excel_file:
+                target_sheet = sheet_name if sheet_name is not None else excel_file.sheet_names[0]
+                df = pd.read_excel(excel_file, sheet_name=target_sheet)
 
         # 6. Check if dataset is empty
         if df is None or df.empty or len(df.columns) == 0:

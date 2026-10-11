@@ -289,16 +289,24 @@ Start the local web application:
 python app.py
 ```
 
-Open your browser and navigate to:
+Open the connected frontend in your browser:
 ```text
 http://127.0.0.1:7860
 ```
 
+The original Gradio interface is still available at:
+```text
+http://127.0.0.1:7860/gradio
+```
+
 ### Quick UI Tour:
-1. Click **"📊 Load Sample Employee Dataset"** (or upload your own CSV/Excel file).
-2. Expand **"📋 Dataset Profiling & Statistics"** to view descriptive statistics and missing values.
-3. Check the **LLM Status Badge**: Shows `🟢 LLM: Connected (Ollama - llama3.2)` or `🟡 Mode: Heuristic Fallback` with clear instructions.
-4. Use one-click prompts or ask questions in plain English:
+1. Click **"Load sample data"** or upload a CSV/Excel file (up to 25 MB).
+2. Review the dataset profile, missing values, detected column types, numerical statistics, and preview.
+3. Use the persistent assistant on the right (or the floating assistant button on mobile) to ask questions or choose a suggested prompt. Queries run through the existing Pandas analysis engine, and Ollama is used when configured.
+4. Switch between light and dark themes with the theme button in the top bar.
+5. Export the current dataset from **Download CSV**. The original Gradio page remains available at `/gradio`.
+
+Example questions:
    * *"What is the average salary?"*
    * *"Show average salary by department"*
    * *"Top 3 employees by salary"*

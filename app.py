@@ -14,14 +14,23 @@ Integrates:
 
 import os
 import re
+import base64
+import io
+import json
+import tempfile
+import threading
+import uuid
 import gradio as gr
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
+from starlette.responses import FileResponse, Response
 
 # Import project modules
-from data_loader import load_dataset, get_dataset_overview
-from data_profiler import generate_full_profile
+from data_loader import load_dataset, get_dataset_overview, MAX_FILE_SIZE_BYTES
+from data_profiler import generate_full_profile, get_column_types
 from query_planner import plan_query
 from analysis_engine import execute_plan
 from response_generator import generate_response
@@ -642,9 +651,281 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
     )
 
 
+# -------------------------------------------------------------
+# Local API used by the standalone frontend
+# -------------------------------------------------------------
+
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+FRONTEND_INDEX = os.path.join(FRONTEND_DIR, "index.html")
+API_DATASETS = {}
+API_DATASETS_LOCK = threading.RLock()
+
+
+def _frame_records(frame):
+    """Convert a dataframe to JSON-safe records, including dates and nulls."""
+    if frame is None or frame.empty:
+        return []
+    return json.loads(frame.to_json(orient="records", date_format="iso", force_ascii=False))
+
+
+def _dataset_payload(dataset_id, record):
+    df = record["df"]
+    profile = generate_full_profile(df)
+    types = get_column_types(df)
+    numeric = set(types["numerical"])
+    categorical = set(types["categorical"])
+    dates = set(types["datetime"])
+    columns = []
+    for column in df.columns:
+        if column in numeric:
+            data_type = "Numeric"
+        elif column in dates:
+            data_type = "Date"
+        elif column in categorical:
+            data_type = "Categorical"
+        else:
+            data_type = "Other"
+        columns.append({
+            "name": str(column),
+            "type": data_type,
+            "dtype": str(df[column].dtype),
+            "missing": int(df[column].isna().sum()),
+            "unique": int(df[column].nunique(dropna=True)),
+        })
+
+    return {
+        "id": dataset_id,
+        "name": record["name"],
+        "file_size": record["file_size"],
+        "row_count": int(len(df)),
+        "column_count": int(len(df.columns)),
+        "headers": [str(column) for column in df.columns],
+        "columns": columns,
+        "preview_rows": _frame_records(df.head(8)),
+        "missing_count": int(profile["total_missing_cells"]),
+        "missing_percentage": float(profile["overall_missing_percentage"]),
+        "completeness": round(100.0 - float(profile["overall_missing_percentage"]), 2),
+        "duplicate_count": int(profile["duplicate_info"]["duplicate_count"]),
+        "quality_score": float(profile["quality_score"]),
+        "memory_usage": profile["memory_usage"],
+        "numeric_stats": _frame_records(profile["numerical_stats_table"]),
+        "categorical_stats": _frame_records(profile["categorical_stats_table"]),
+    }
+
+
+def _store_api_dataset(df, filename, file_size):
+    dataset_id = uuid.uuid4().hex
+    record = {
+        "df": df,
+        "name": filename,
+        "file_size": int(file_size),
+        "context_history": [],
+    }
+    with API_DATASETS_LOCK:
+        API_DATASETS[dataset_id] = record
+    return _dataset_payload(dataset_id, record)
+
+
+web_app = FastAPI(title="AI Data Analyst Agent API")
+
+
+@web_app.get("/", include_in_schema=False)
+async def serve_frontend():
+    if not os.path.isfile(FRONTEND_INDEX):
+        raise HTTPException(status_code=404, detail="Frontend file not found.")
+    return FileResponse(FRONTEND_INDEX, media_type="text/html")
+
+
+@web_app.get("/api/health")
+async def api_health():
+    status = check_api_status()
+    return {
+        "status": "ok",
+        "analytics": "connected",
+        "llm_connected": bool(status.get("configured")),
+        "llm_model": status.get("model"),
+        "llm_message": status.get("message", ""),
+    }
+
+
+@web_app.post("/api/datasets")
+async def api_upload_dataset(request: Request):
+    filename = request.query_params.get("filename", "dataset.csv").replace("\\", "/").rsplit("/", 1)[-1]
+    extension = os.path.splitext(filename)[1].lower()
+    if extension not in {".csv", ".xlsx", ".xls"}:
+        raise HTTPException(status_code=400, detail="Upload a CSV, XLSX, or XLS file.")
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="Files must be 25 MB or smaller.")
+
+    contents = await request.body()
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+    if len(contents) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="Files must be 25 MB or smaller.")
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=extension, delete=False) as temp_file:
+            temp_file.write(contents)
+            temp_path = temp_file.name
+        df, error = load_dataset(temp_path)
+        if error:
+            raise HTTPException(status_code=400, detail=error)
+        return _store_api_dataset(df, filename, len(contents))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+@web_app.post("/api/datasets/sample")
+async def api_load_sample_dataset():
+    sample_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Titanic-Dataset.csv")
+    if not os.path.isfile(sample_path):
+        sample_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets", "sample_data.csv")
+    df, error = load_dataset(sample_path)
+    if error:
+        raise HTTPException(status_code=404, detail=error)
+    return _store_api_dataset(df, os.path.basename(sample_path), os.path.getsize(sample_path))
+
+
+@web_app.get("/api/datasets/{dataset_id}")
+async def api_get_dataset(dataset_id: str):
+    with API_DATASETS_LOCK:
+        record = API_DATASETS.get(dataset_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dataset session not found. Upload the file again.")
+    return _dataset_payload(dataset_id, record)
+
+
+@web_app.post("/api/datasets/{dataset_id}/ask")
+async def api_ask_dataset(dataset_id: str, request: Request):
+    with API_DATASETS_LOCK:
+        record = API_DATASETS.get(dataset_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dataset session not found. Upload the file again.")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Send a JSON body with a question field.")
+    question = str(body.get("question", "")).strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Enter a question about the dataset.")
+
+    df = record["df"]
+    dataset_name = record["name"]
+    context_history = record["context_history"]
+    submitted_columns = body.get("columns", [])
+    columns_by_name = {str(column): column for column in df.columns}
+    selected_columns = [columns_by_name[name] for name in submitted_columns if isinstance(name, str) and name in columns_by_name]
+    query_df = df.loc[:, selected_columns] if selected_columns and len(selected_columns) < len(df.columns) else df
+    intent = None
+    confidence = None
+    table = None
+    chart_data = None
+    updated_dataset = None
+
+    if _is_conversational_query(question):
+        answer = _generate_conversational_reply(question, df, dataset_name)
+    else:
+        from query_classifier import classify_user_query
+        intent, confidence = classify_user_query(question)
+        plan, plan_error = plan_query(question, query_df, conversation_history=context_history)
+        if plan_error and query_df is not df:
+            alt_plan, alt_err = plan_query(question, df, conversation_history=context_history)
+            if not alt_err:
+                plan, plan_error = alt_plan, None
+                query_df = df
+        if plan_error:
+            if "did you mean" in plan_error.lower() or "not found" in plan_error.lower():
+                answer = f"[Notice] {plan_error}"
+            else:
+                answer = _generate_conversational_reply(question, df, dataset_name)
+        else:
+            result = execute_plan(query_df, plan)
+            execution_df = query_df
+            if result.get("status") != "success" and query_df is not df:
+                alt_res = execute_plan(df, plan)
+                if alt_res.get("status") == "success":
+                    result = alt_res
+                    execution_df = df
+            elif result.get("modified_df") is not None and query_df is not df:
+                # Apply edits against the complete frame so hidden columns survive preprocessing.
+                full_result = execute_plan(df, plan)
+                if full_result.get("status") == "success":
+                    result = full_result
+                    execution_df = df
+            target_column = plan.get("column") or plan.get("group_by") or plan.get("condition_col")
+            context_history.append({
+                "user": question,
+                "task": plan.get("task"),
+                "column": target_column,
+                "analyzed_column": target_column,
+            })
+            answer = generate_response(question, result, dataset_name=dataset_name)
+
+            value = result.get("value")
+            if isinstance(value, pd.Series):
+                value = value.reset_index()
+            if isinstance(value, pd.DataFrame):
+                table = {"columns": [str(column) for column in value.columns], "rows": _frame_records(value)}
+            elif isinstance(value, (list, tuple)) and value and isinstance(value[0], dict):
+                table = {"columns": list(value[0].keys()), "rows": value}
+            elif isinstance(result.get("chart_data"), pd.DataFrame):
+                cd = result["chart_data"]
+                table = {"columns": [str(c) for c in cd.columns], "rows": _frame_records(cd)}
+
+            if result.get("status") == "success":
+                figure, _ = create_auto_chart(result, execution_df)
+                if figure is not None:
+                    image_buffer = io.BytesIO()
+                    try:
+                        figure.savefig(image_buffer, format="png", dpi=120, bbox_inches="tight")
+                    finally:
+                        plt.close(figure)
+                    chart_data = "data:image/png;base64," + base64.b64encode(image_buffer.getvalue()).decode("ascii")
+
+            modified_df = result.get("modified_df")
+            if modified_df is not None:
+                record["df"] = modified_df
+                df = modified_df
+                updated_dataset = _dataset_payload(dataset_id, record)
+
+    return {
+        "answer": answer,
+        "intent": str(intent) if intent is not None else None,
+        "confidence": float(confidence) if confidence is not None else None,
+        "table": table,
+        "chart": chart_data,
+        "dataset": updated_dataset,
+    }
+
+
+@web_app.get("/api/datasets/{dataset_id}/export")
+async def api_export_dataset(dataset_id: str):
+    with API_DATASETS_LOCK:
+        record = API_DATASETS.get(dataset_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dataset session not found. Upload the file again.")
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", os.path.splitext(record["name"])[0]) or "dataset"
+    csv_data = record["df"].to_csv(index=False).encode("utf-8-sig")
+    return Response(
+        content=csv_data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="modified_{safe_stem}.csv"'},
+    )
+
+
+# Keep the existing Gradio interface and callbacks available while the custom
+# dashboard uses the same analysis functions through the API above.
+web_app = gr.mount_gradio_app(web_app, demo, path="/gradio")
+
+
 if __name__ == "__main__":
     print("=" * 60)
-    print("Starting AI Data Analyst Agent Gradio Server...")
+    print("Starting AI Data Analyst Agent...")
     print("=" * 60)
-    # Launch Gradio server (automatically binds to 7860 or the next available port)
-    demo.launch(server_name="127.0.0.1", share=False, css=custom_css)
+    print("Dashboard: http://127.0.0.1:7860/")
+    print("Original Gradio interface: http://127.0.0.1:7860/gradio")
+    uvicorn.run(web_app, host="127.0.0.1", port=int(os.environ.get("ADAA_PORT", "7860")))
