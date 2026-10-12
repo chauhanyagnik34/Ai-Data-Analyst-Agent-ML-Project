@@ -8,10 +8,8 @@ Evaluates query planning, execution, and detects any failure or unhandled querie
 import os
 import sys
 import pandas as pd
-from data_loader import load_dataset
-from query_planner import plan_query
-from analysis_engine import execute_plan
-from data_profiler import (
+from core.data_manager import (
+    load_dataset,
     get_missing_summary,
     get_duplicate_summary,
     get_numerical_statistics,
@@ -22,7 +20,9 @@ from data_profiler import (
     generate_full_profile,
     get_column_types,
 )
-from visualization import create_auto_chart
+from agent.planner import plan_query
+from agent.executor import execute_plan
+from core.visualization import create_auto_chart
 
 TASKS = {
     "A": [

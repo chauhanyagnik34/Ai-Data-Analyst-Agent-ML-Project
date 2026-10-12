@@ -14,7 +14,7 @@ Unlike conventional LLM wrappers that ask models to calculate mathematical figur
 2. An **LLM Query Planner** (`Ollama` local LLM via `llama3.2`) compiles the question into a structured JSON execution plan.
 3. A **Deterministic Analysis Engine** (`Pandas` & `NumPy`) calculates the verified numerical answer.
 4. An **Automated Visualization Engine** (`Matplotlib`) renders clean statistical plots.
-5. An interactive **Web Application** (`Gradio`) displays conversational answers, summary tables, and charts.
+5. The HTML/CSS/JavaScript dashboard and AI Agent pages display live dataset profiles, conversational answers, result tables, and charts through FastAPI.
 
 All LLM communication is handled locally via **Ollama** (`http://localhost:11434`), eliminating all cloud API keys, recurring fees, and data privacy concerns.
 
@@ -102,7 +102,8 @@ The system supports the full 5-stage **Knowledge Discovery in Databases (KDD)** 
 | **Excel Parser** | `openpyxl` (>=3.1.2) | Reading `.xlsx` workbook formats |
 | **Machine Learning** | `scikit-learn` (>=1.4.0) | Intent classifier, K-Means, DBSCAN, PCA, Decision Tree, Logistic Regression, Linear Regression |
 | **Visualization** | `matplotlib` (>=3.8.0) | Clean figure rendering using server-safe `Agg` backend |
-| **Web Interface** | `gradio` (>=4.20.0) | Reactive web UI with chat, tables, and plot rendering |
+| **Web Application** | HTML, CSS, JavaScript, `fastapi`, `uvicorn` | Multi-page KDD dashboard, AI Agent, upload, profiling, and analysis APIs |
+| **Legacy Interface** | `gradio` (>=4.20.0) | Optional original interface at `/gradio` |
 | **Environment Mgmt** | `python-dotenv` (>=1.0.1) | Environment variable management via `.env` |
 | **LLM Communication** | `requests` (>=2.31.0) | HTTP REST communication with local Ollama daemon (`/api/chat`, `/api/tags`) |
 | **Local LLM Engine** | **Ollama** | Local LLM server running `llama3.2` on `http://localhost:11434` |
@@ -154,8 +155,8 @@ python evaluation.py
                                         │
                                         ▼
                    ┌─────────────────────────────────────────┐
-                   │        Gradio Web User Interface        │
-                   │                (app.py)                 │
+                   │ KDD Dashboard + AI Agent (frontend/)    │
+                   │   FastAPI analysis API in app.py         │
                    └────────────────────┬────────────────────┘
                                         │
             ┌───────────────────────────┴───────────────────────────┐
@@ -203,7 +204,11 @@ python evaluation.py
 ```text
 Ai-Data-Analyst-Agent-ML-Project/
 │
-├── app.py                      # Main web application (Gradio UI & orchestration)
+├── app.py                      # Frontend routes, FastAPI API, Gradio UI, and orchestration
+├── frontend/
+│   ├── index.html              # Dashboard and KDD workflow pages
+│   ├── styles.css              # Dark/light themes and responsive UI
+│   └── app.js                  # Upload, profiling, operation, chart, and chat wiring
 ├── data_loader.py              # Secure CSV & Excel loader with format & size guards
 ├── data_profiler.py            # Automated dataset profiling & descriptive statistics
 ├── llm_client.py               # Centralized Ollama HTTP client (/api/chat, /api/tags)
@@ -289,22 +294,18 @@ Start the local web application:
 python app.py
 ```
 
-Open the connected frontend in your browser:
+Open the project dashboard in your browser:
 ```text
 http://127.0.0.1:7860
 ```
 
-The original Gradio interface is still available at:
-```text
-http://127.0.0.1:7860/gradio
-```
+Open the AI Agent page directly at `http://127.0.0.1:7860/agent`. The legacy Gradio interface remains at `http://127.0.0.1:7860/gradio`.
 
 ### Quick UI Tour:
-1. Click **"Load sample data"** or upload a CSV/Excel file (up to 25 MB).
-2. Review the dataset profile, missing values, detected column types, numerical statistics, and preview.
-3. Use the persistent assistant on the right (or the floating assistant button on mobile) to ask questions or choose a suggested prompt. Queries run through the existing Pandas analysis engine, and Ollama is used when configured.
-4. Switch between light and dark themes with the theme button in the top bar.
-5. Export the current dataset from **Download CSV**. The original Gradio page remains available at `/gradio`.
+1. Upload a CSV/Excel file (up to 25 MB) or load the Titanic and Employee sample datasets.
+2. Review row and column counts, missing values, completeness, quality score, column types, numerical statistics, and searchable row previews.
+3. Use the EDA & Aggregation page for quality audits, uniqueness, distributions, grouped summaries, pivots, cross-tabs, and the KDD pages for selection, cleaning, transformations, mining, and charts.
+4. Review result tables and Matplotlib visualizations, switch between light and dark themes, and export or reset the active dataset.
 
 Example questions:
    * *"What is the average salary?"*

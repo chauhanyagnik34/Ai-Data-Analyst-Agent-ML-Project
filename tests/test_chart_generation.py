@@ -10,10 +10,10 @@ import unittest
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from data_loader import load_dataset
-from query_planner import plan_query
-from analysis_engine import execute_plan
-from visualization import create_auto_chart
+from core.data_manager import load_dataset
+from agent.planner import plan_query
+from agent.executor import execute_plan
+from core.visualization import create_auto_chart
 
 
 class TestChartGeneration(unittest.TestCase):

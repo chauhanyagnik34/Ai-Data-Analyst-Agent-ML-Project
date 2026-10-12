@@ -14,9 +14,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from analysis_engine import execute_plan
-from query_planner import plan_query, validate_plan
-from visualization import (
+from agent.executor import execute_plan
+from agent.planner import plan_query, validate_plan
+from core.visualization import (
     create_box_plot,
     create_pie_chart,
     create_time_series_chart,

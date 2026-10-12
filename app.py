@@ -26,16 +26,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from starlette.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response, FileResponse, RedirectResponse
 
-# Import project modules
-from data_loader import load_dataset, get_dataset_overview, MAX_FILE_SIZE_BYTES
-from data_profiler import generate_full_profile, get_column_types
-from query_planner import plan_query
-from analysis_engine import execute_plan
-from response_generator import generate_response
-from visualization import create_auto_chart
-from llm_client import check_api_status, call_llm
+from core.data_manager import load_dataset, get_dataset_overview, MAX_FILE_SIZE_BYTES, generate_full_profile, get_column_types
+from agent.planner import plan_query
+from agent.executor import execute_plan, generate_response
+from core.visualization import create_auto_chart
+from agent.ollama_client import check_api_status
+from agent.pipeline import handle_query, is_conversational_query, generate_conversational_reply
 
 # Ensure exports directory exists for modified dataset downloads
 EXPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
@@ -155,65 +154,11 @@ def on_file_upload(file_obj, current_history):
 
 
 def _is_conversational_query(question: str) -> bool:
-    """Detects whether a user message is a greeting or general conversational query."""
-    q_clean = (question or "").strip().lower()
-    greetings = {
-        "hi", "hello", "hey", "hola", "greetings", "good morning", "good afternoon",
-        "good evening", "howdy", "sup", "yo", "who are you", "who are you?",
-        "what can you do", "what can you do?", "help", "how to use", "how do i use this",
-        "thanks", "thank you"
-    }
-    if q_clean in greetings:
-        return True
-    words = re.findall(r"\b\w+\b", q_clean)
-    if len(words) <= 3 and any(w in greetings for w in words):
-        analytical_keywords = {
-            "average", "mean", "median", "sum", "count", "max", "min", "std", "chart",
-            "plot", "histogram", "pie", "bar", "box", "scatter", "missing", "null",
-            "filter", "predict", "train", "cluster", "drop", "fill"
-        }
-        if not any(w in words for w in analytical_keywords):
-            return True
-    return False
+    return is_conversational_query(question)
 
 
 def _generate_conversational_reply(question: str, df: pd.DataFrame, dataset_name: str) -> str:
-    """Uses Ollama (llama3.2) to generate a warm, conversational answer with dataset context."""
-    status = check_api_status()
-    if status.get("configured"):
-        cols_summary = ", ".join(df.columns[:20]) if df is not None and not df.empty else "None"
-        num_cols = ", ".join(df.select_dtypes(include=[np.number]).columns[:5]) if df is not None and not df.empty else "None"
-        cat_cols = ", ".join(df.select_dtypes(include=["object", "category"]).columns[:5]) if df is not None and not df.empty else "None"
-        total_rows = len(df) if df is not None else 0
-        total_cols = len(df.columns) if df is not None else 0
-
-        sys_prompt = (
-            "You are AI Agent, a helpful and expert AI data science copilot powered by Ollama (llama3.2).\n"
-            f"Active dataset: '{dataset_name}' with {total_rows:,} rows and {total_cols} columns.\n"
-            f"Columns: {cols_summary}.\n"
-            f"Key numerical columns: {num_cols}. Key categorical columns: {cat_cols}.\n\n"
-            "Instructions:\n"
-            "1. If the user is greeting you (e.g. 'hi', 'hello') or asking who you are or what you can do, greet them warmly and introduce yourself as their AI Data Analyst Agent. Mention the dataset name and rows/columns, and suggest 3-4 concrete questions they can ask you to execute (e.g., statistics, data quality, charts like pie/bar charts, machine learning).\n"
-            "2. If the user asks for data analysis advice or questions about the dataset, provide clear, concise insights and suggest next queries to execute.\n"
-            "3. Keep the answer friendly, professional, concise, and formatted in clean markdown without any system error text."
-        )
-        reply, err = call_llm(question, system_instruction=sys_prompt, timeout=45)
-        if not err and reply and reply.strip():
-            return reply.strip()
-
-    # Deterministic fallback if Ollama is unreachable
-    col_sample = df.columns[1] if df is not None and len(df.columns) > 1 else (df.columns[0] if df is not None and len(df.columns) > 0 else "data")
-    return (
-        f"**Hello! I am your AI Data Analyst Agent.**\n\n"
-        f"I have loaded **`{dataset_name}`** with **{len(df):,} rows** and **{len(df.columns)} columns**.\n\n"
-        f"You can ask me questions to execute on this dataset, such as:\n"
-        f"- *'What is the average {col_sample}?'*\n"
-        f"- *'Create a pie chart for {col_sample}'*\n"
-        f"- *'Show missing values across all columns'*\n"
-        f"- *'Plot histogram for {col_sample}'*\n"
-        f"- *'Train a Random Forest model'* or *'Show data quality report'*\n\n"
-        f"What would you like to analyze?"
-    )
+    return generate_conversational_reply(question, df, dataset_name)
 
 
 def on_ask_question(question, active_df, dataset_name, chat_history, context_history):
@@ -253,89 +198,20 @@ def on_ask_question(question, active_df, dataset_name, chat_history, context_his
 
     df = active_df
     dataset_name = dataset_name or "dataset"
-    current_context = list(context_history or [])
-
-    # 1. If user message is a greeting or general conversational query, reply via Ollama (llama3.2)
-    if _is_conversational_query(question):
-        reply = _generate_conversational_reply(question, df, dataset_name)
-        new_history = list(chat_history or [])
-        new_history.append({"role": "user", "content": question})
-        new_history.append({"role": "assistant", "content": reply})
-        return (
-            new_history,
-            current_context,
-            None,
-            None,
-            "",
-            active_df,
-            gr.update(),
-            gr.update(),
-            gr.update(),
-            gr.update(),
-            gr.update(),
-        )
-
-    # 2. Classify Query Intent with Scikit-Learn ML Model (Viva ML Component)
-    from query_classifier import classify_user_query
-    ml_intent, ml_conf = classify_user_query(question)
-
-    # 3. Translate question into validated plan with context
-    plan, plan_err = plan_query(question, df, conversation_history=current_context)
-    if plan_err:
-        # If the error is a column misspelling ("Did you mean: ..."), show notice
-        if "did you mean" in plan_err.lower() or "not found" in plan_err.lower():
-            err_reply = f"**[Notice]**: {plan_err}"
-        else:
-            # Answer conversationally using Ollama (llama3.2) with dataset context
-            err_reply = _generate_conversational_reply(question, df, dataset_name)
-
-        new_history = list(chat_history or [])
-        new_history.append({"role": "user", "content": question})
-        new_history.append({"role": "assistant", "content": err_reply})
-        return (
-            new_history,
-            current_context,
-            None,
-            None,
-            "",
-            active_df,
-            gr.update(),
-            gr.update(),
-            gr.update(),
-            gr.update(),
-            gr.update(),
-        )
-
-    # 3. Execute plan with Pandas Analysis Engine
-    result = execute_plan(df, plan)
-
-    # 4. Record turn in contextual history for future follow-up questions
-    target_column = plan.get("column") or plan.get("group_by") or plan.get("condition_col")
-    current_context.append({
-        "user": question,
-        "task": plan.get("task"),
-        "column": target_column,
-        "analyzed_column": target_column,
-    })
-
-    # 5. Generate natural language response
-    response_text = generate_response(question, result, dataset_name=dataset_name)
+    outcome = handle_query(question, df, dataset_name, context_history=list(context_history or []))
+    current_context = outcome["context"]
+    response_text = outcome["answer"]
+    result = outcome.get("result") or {}
+    chart_fig = outcome.get("figure")
 
     new_history = list(chat_history or [])
     new_history.append({"role": "user", "content": question})
     new_history.append({"role": "assistant", "content": response_text})
 
-    # 6. Tabular result
     table_output = None
     if result.get("status") == "success" and isinstance(result.get("value"), pd.DataFrame):
         table_output = result["value"]
 
-    # 7. Chart
-    chart_fig = None
-    if result.get("status") == "success":
-        chart_fig, _ = create_auto_chart(result, df)
-
-    # 8. Check if dataset was modified (KDD Preprocessing / Imputation / Cleaning / Transformation)
     if result.get("modified_df") is not None:
         updated_df = result["modified_df"]
         clean_name = os.path.splitext(dataset_name)[0].replace(" ", "_")
@@ -447,7 +323,7 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
         <div class="app-header">
             <h1 style="margin:0; font-size: 26px;">🤖 AI Data Analyst Agent</h1>
             <p style="margin:4px 0 0 0; font-size: 14px; opacity: 0.9;">
-                Natural-Language Conversational Tabular Analysis Powered by Pandas, Scikit-Learn & Ollama
+                Natural-Language Conversational Tabular Analysis Powered by Pandas, NumPy & local Ollama + Llama
             </p>
         </div>
         """
@@ -652,11 +528,9 @@ with gr.Blocks(title="AI Data Analyst Agent") as demo:
 
 
 # -------------------------------------------------------------
-# Local API used by the standalone frontend
+# Local API used by the dashboard and analysis tools
 # -------------------------------------------------------------
 
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
-FRONTEND_INDEX = os.path.join(FRONTEND_DIR, "index.html")
 API_DATASETS = {}
 API_DATASETS_LOCK = threading.RLock()
 
@@ -728,6 +602,7 @@ def _store_api_dataset(df, filename, file_size):
     dataset_id = uuid.uuid4().hex
     record = {
         "df": df,
+        "original_df": df.copy(deep=True),
         "name": filename,
         "file_size": int(file_size),
         "context_history": [],
@@ -738,14 +613,6 @@ def _store_api_dataset(df, filename, file_size):
 
 
 web_app = FastAPI(title="AI Data Analyst Agent API")
-
-
-@web_app.get("/", include_in_schema=False)
-async def serve_frontend():
-    if not os.path.isfile(FRONTEND_INDEX):
-        raise HTTPException(status_code=404, detail="Frontend file not found.")
-    return FileResponse(FRONTEND_INDEX, media_type="text/html")
-
 
 @web_app.get("/api/health")
 async def api_health():
@@ -809,6 +676,49 @@ async def api_get_dataset(dataset_id: str):
     return _dataset_payload(dataset_id, record)
 
 
+@web_app.get("/api/datasets/{dataset_id}/rows")
+async def api_get_dataset_rows(dataset_id: str, request: Request):
+    with API_DATASETS_LOCK:
+        record = API_DATASETS.get(dataset_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dataset session not found. Upload the file again.")
+
+    try:
+        offset = max(0, int(request.query_params.get("offset", "0")))
+        limit = min(100, max(1, int(request.query_params.get("limit", "10"))))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Offset and limit must be whole numbers.")
+
+    frame = record["df"]
+    query = request.query_params.get("search", "").strip()[:120]
+    filtered = frame
+    if query:
+        matches = frame.astype("string").apply(
+            lambda column: column.str.contains(query, case=False, regex=False, na=False)
+        ).any(axis=1)
+        filtered = frame.loc[matches]
+
+    page = filtered.iloc[offset:offset + limit]
+    return {
+        "columns": [str(column) for column in frame.columns],
+        "rows": _frame_records(page),
+        "total": int(len(filtered)),
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+@web_app.post("/api/datasets/{dataset_id}/reset")
+async def api_reset_dataset(dataset_id: str):
+    with API_DATASETS_LOCK:
+        record = API_DATASETS.get(dataset_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Dataset session not found. Upload the file again.")
+        record["df"] = record["original_df"].copy(deep=True)
+        record["context_history"].clear()
+    return _dataset_payload(dataset_id, record)
+
+
 @web_app.post("/api/datasets/{dataset_id}/ask")
 async def api_ask_dataset(dataset_id: str, request: Request):
     with API_DATASETS_LOCK:
@@ -826,87 +736,62 @@ async def api_ask_dataset(dataset_id: str, request: Request):
 
     df = record["df"]
     dataset_name = record["name"]
-    context_history = record["context_history"]
     submitted_columns = body.get("columns", [])
     columns_by_name = {str(column): column for column in df.columns}
     selected_columns = [columns_by_name[name] for name in submitted_columns if isinstance(name, str) and name in columns_by_name]
     query_df = df.loc[:, selected_columns] if selected_columns and len(selected_columns) < len(df.columns) else df
-    intent = None
-    confidence = None
+
+    outcome = handle_query(
+        question,
+        df,
+        dataset_name,
+        context_history=record["context_history"],
+        query_df=query_df,
+    )
+    record["context_history"] = outcome["context"]
+    answer = outcome["answer"]
+    plan = outcome.get("plan") or {"task": "conversational_reply"}
+    result = outcome.get("result") or {}
     table = None
     chart_data = None
     updated_dataset = None
+    intent = None
+    confidence = None
 
-    if _is_conversational_query(question):
-        answer = _generate_conversational_reply(question, df, dataset_name)
-    else:
-        from query_classifier import classify_user_query
+    if plan.get("task") not in {None, "conversational_reply", "planning_error"}:
+        from core.query_classifier import classify_user_query
         intent, confidence = classify_user_query(question)
-        plan, plan_error = plan_query(question, query_df, conversation_history=context_history)
-        if plan_error and query_df is not df:
-            alt_plan, alt_err = plan_query(question, df, conversation_history=context_history)
-            if not alt_err:
-                plan, plan_error = alt_plan, None
-                query_df = df
-        if plan_error:
-            if "did you mean" in plan_error.lower() or "not found" in plan_error.lower():
-                answer = f"[Notice] {plan_error}"
-            else:
-                answer = _generate_conversational_reply(question, df, dataset_name)
-        else:
-            result = execute_plan(query_df, plan)
-            execution_df = query_df
-            if result.get("status") != "success" and query_df is not df:
-                alt_res = execute_plan(df, plan)
-                if alt_res.get("status") == "success":
-                    result = alt_res
-                    execution_df = df
-            elif result.get("modified_df") is not None and query_df is not df:
-                # Apply edits against the complete frame so hidden columns survive preprocessing.
-                full_result = execute_plan(df, plan)
-                if full_result.get("status") == "success":
-                    result = full_result
-                    execution_df = df
-            target_column = plan.get("column") or plan.get("group_by") or plan.get("condition_col")
-            context_history.append({
-                "user": question,
-                "task": plan.get("task"),
-                "column": target_column,
-                "analyzed_column": target_column,
-            })
-            answer = generate_response(question, result, dataset_name=dataset_name)
 
-            value = result.get("value")
-            if isinstance(value, pd.Series):
-                value = value.reset_index()
-            if isinstance(value, pd.DataFrame):
-                table = {"columns": [str(column) for column in value.columns], "rows": _frame_records(value)}
-            elif isinstance(value, (list, tuple)) and value and isinstance(value[0], dict):
-                table = {"columns": list(value[0].keys()), "rows": value}
-            elif isinstance(result.get("chart_data"), pd.DataFrame):
-                cd = result["chart_data"]
-                table = {"columns": [str(c) for c in cd.columns], "rows": _frame_records(cd)}
+    value = result.get("value")
+    if isinstance(value, pd.Series):
+        value = value.reset_index()
+    if isinstance(value, pd.DataFrame):
+        table = {"columns": [str(column) for column in value.columns], "rows": _frame_records(value)}
+    elif isinstance(value, (list, tuple)) and value and isinstance(value[0], dict):
+        table = {"columns": list(value[0].keys()), "rows": value}
+    elif isinstance(result.get("chart_data"), pd.DataFrame):
+        cd = result["chart_data"]
+        table = {"columns": [str(c) for c in cd.columns], "rows": _frame_records(cd)}
 
-            if result.get("status") == "success":
-                figure, _ = create_auto_chart(result, execution_df)
-                if figure is not None:
-                    image_buffer = io.BytesIO()
-                    try:
-                        figure.savefig(image_buffer, format="png", dpi=120, bbox_inches="tight")
-                    finally:
-                        plt.close(figure)
-                    chart_data = "data:image/png;base64," + base64.b64encode(image_buffer.getvalue()).decode("ascii")
+    figure = outcome.get("figure")
+    if figure is not None:
+        image_buffer = io.BytesIO()
+        try:
+            figure.savefig(image_buffer, format="png", dpi=120, bbox_inches="tight")
+        finally:
+            plt.close(figure)
+        chart_data = "data:image/png;base64," + base64.b64encode(image_buffer.getvalue()).decode("ascii")
 
-            modified_df = result.get("modified_df")
-            if modified_df is not None:
-                record["df"] = modified_df
-                df = modified_df
-                updated_dataset = _dataset_payload(dataset_id, record)
+    modified_df = outcome.get("updated_df")
+    if modified_df is not None:
+        record["df"] = modified_df
+        updated_dataset = _dataset_payload(dataset_id, record)
 
     return {
         "answer": answer,
         "intent": str(intent) if intent is not None else None,
         "confidence": float(confidence) if confidence is not None else None,
+        "plan": plan,
         "table": table,
         "chart": chart_data,
         "dataset": updated_dataset,
@@ -928,8 +813,220 @@ async def api_export_dataset(dataset_id: str):
     )
 
 
-# Keep the existing Gradio interface and callbacks available while the custom
-# dashboard uses the same analysis functions through the API above.
+# Helper for converting values safely to JSON
+def _make_json_safe(obj):
+    if isinstance(obj, (pd.DataFrame, pd.Series)):
+        return _frame_records(obj.reset_index() if isinstance(obj, pd.Series) else obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, (np.floating, float)):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return [_make_json_safe(x) for x in obj.tolist()]
+    if isinstance(obj, dict):
+        return {str(k): _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_make_json_safe(x) for x in obj]
+    return obj
+
+
+@web_app.get("/api/datasets/presets")
+async def api_get_presets():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    presets = []
+    titanic_path = os.path.join(base_dir, "Titanic-Dataset.csv")
+    if os.path.isfile(titanic_path):
+        presets.append({
+            "key": "titanic",
+            "name": "Titanic Passenger Dataset",
+            "filename": "Titanic-Dataset.csv",
+            "description": "891 passenger records with survival outcomes, demographics, and fare tiers.",
+            "records": 891,
+            "columns": 12,
+        })
+    employee_path = os.path.join(base_dir, "datasets", "sample_data.csv")
+    if os.path.isfile(employee_path):
+        presets.append({
+            "key": "employee",
+            "name": "Corporate Employee Dataset",
+            "filename": "sample_data.csv",
+            "description": "15 employee profiles across engineering, sales, marketing with salary and ratings.",
+            "records": 15,
+            "columns": 9,
+        })
+    return {"presets": presets}
+
+
+@web_app.post("/api/datasets/presets/{preset_key}")
+async def api_load_preset(preset_key: str):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    if preset_key.lower() in ["titanic", "titanic-dataset", "titanic_dataset"]:
+        target_path = os.path.join(base_dir, "Titanic-Dataset.csv")
+    elif preset_key.lower() in ["employee", "sample", "sample_data", "sample_data.csv"]:
+        target_path = os.path.join(base_dir, "datasets", "sample_data.csv")
+    else:
+        raise HTTPException(status_code=404, detail=f"Preset '{preset_key}' not found.")
+
+    if not os.path.isfile(target_path):
+        raise HTTPException(status_code=404, detail="Preset file does not exist on server.")
+
+    df, error = load_dataset(target_path)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return _store_api_dataset(df, os.path.basename(target_path), os.path.getsize(target_path))
+
+
+@web_app.post("/api/datasets/{dataset_id}/execute")
+async def api_execute_dataset(dataset_id: str, request: Request):
+    with API_DATASETS_LOCK:
+        record = API_DATASETS.get(dataset_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dataset session not found. Upload the file again.")
+
+    try:
+        plan = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Send a valid JSON body with task parameters.")
+
+    if not isinstance(plan, dict) or "task" not in plan:
+        raise HTTPException(status_code=400, detail="Plan must contain a valid 'task' property.")
+
+    df = record["df"]
+    dataset_name = record["name"]
+    context_history = record["context_history"]
+
+    result = execute_plan(df, plan)
+    table = None
+    chart_data = None
+    updated_dataset = None
+
+    value = result.get("value")
+    if isinstance(value, pd.Series):
+        value = value.reset_index()
+    if isinstance(value, pd.DataFrame):
+        table = {"columns": [str(c) for c in value.columns], "rows": _frame_records(value)}
+    elif isinstance(value, (list, tuple)) and value and isinstance(value[0], dict):
+        table = {"columns": list(value[0].keys()), "rows": value}
+    elif isinstance(result.get("chart_data"), pd.DataFrame):
+        cd = result["chart_data"]
+        table = {"columns": [str(c) for c in cd.columns], "rows": _frame_records(cd)}
+
+    if result.get("status") == "success":
+        figure, _ = create_auto_chart(result, df)
+        if figure is not None:
+            image_buffer = io.BytesIO()
+            try:
+                figure.savefig(image_buffer, format="png", dpi=120, bbox_inches="tight")
+            finally:
+                plt.close(figure)
+            chart_data = "data:image/png;base64," + base64.b64encode(image_buffer.getvalue()).decode("ascii")
+
+    # If dataset was modified, save to exports and update session
+    modified_df = result.get("modified_df")
+    if modified_df is not None:
+        record["df"] = modified_df
+        clean_name = os.path.splitext(dataset_name)[0].replace(" ", "_")
+        export_file = os.path.join(EXPORTS_DIR, f"modified_{clean_name}.csv")
+        modified_df.to_csv(export_file, index=False)
+        updated_dataset = _dataset_payload(dataset_id, record)
+
+    # Record turn context
+    target_column = plan.get("column") or plan.get("group_by") or plan.get("condition_col")
+    context_history.append({
+        "user": f"Executed operation: {plan.get('task')}",
+        "task": plan.get("task"),
+        "column": target_column,
+        "analyzed_column": target_column,
+    })
+
+    simulated_q = f"Operation: {plan.get('task')}"
+    answer = generate_response(simulated_q, result, dataset_name=dataset_name)
+
+    return {
+        "status": result.get("status", "success"),
+        "task": result.get("task"),
+        "result_type": result.get("result_type"),
+        "message": result.get("message"),
+        "answer": answer,
+        "value": _make_json_safe(result.get("value")),
+        "table": table,
+        "chart": chart_data,
+        "metrics": _make_json_safe(result.get("metrics")),
+        "dataset": updated_dataset,
+    }
+
+
+@web_app.post("/api/intent/classify")
+async def api_intent_classify(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Send a valid JSON body with a 'query' field.")
+
+    query = str(body.get("query", "")).strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Provide a non-empty query to classify.")
+
+    from core.query_classifier import get_trained_classifier, preprocess_text
+    clf = get_trained_classifier()
+    pred_label, confidence = clf.predict(query)
+    cleaned_q = preprocess_text(query)
+    probs = clf.pipeline.predict_proba([cleaned_q])[0]
+    classes = list(clf.pipeline.classes_)
+
+    distribution = [
+        {"intent": c, "probability": round(float(p), 4), "percentage": round(float(p) * 100, 2)}
+        for c, p in sorted(zip(classes, probs), key=lambda x: x[1], reverse=True)
+    ]
+
+    return {
+        "query": query,
+        "cleaned_query": cleaned_q,
+        "predicted_intent": pred_label,
+        "confidence": confidence,
+        "confidence_percentage": round(confidence * 100, 1),
+        "distribution": distribution,
+    }
+
+
+@web_app.get("/api/intent/metrics")
+async def api_intent_metrics():
+    from core.query_classifier import get_trained_classifier
+    clf = get_trained_classifier()
+    metrics = clf.train_and_evaluate(test_size=0.25, random_state=42)
+    return {
+        "accuracy": round(float(metrics["accuracy"]), 4),
+        "accuracy_percentage": round(float(metrics["accuracy"]) * 100, 2),
+        "macro_f1": round(float(metrics["macro_f1"]), 4),
+        "weighted_f1": round(float(metrics["weighted_f1"]), 4),
+        "total_classes": int(metrics["total_classes"]),
+        "classes": list(clf.pipeline.classes_),
+        "train_samples": int(metrics["train_samples"]),
+        "test_samples": int(metrics["test_samples"]),
+    }
+
+
+# Mount Modern Multi-Page Frontend Static Files
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+os.makedirs(FRONTEND_DIR, exist_ok=True)
+web_app.mount("/demo", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend_demo")
+
+@web_app.get("/")
+async def root_app():
+    index_file = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.isfile(index_file):
+        return FileResponse(index_file)
+    return RedirectResponse(url="/gradio")
+
+
+@web_app.get("/agent", include_in_schema=False)
+async def agent_app():
+    return RedirectResponse(url="/#page-ai")
+
+
+# Serve the existing Gradio application at /gradio so all workflows and tests remain accessible.
 web_app = gr.mount_gradio_app(web_app, demo, path="/gradio")
 
 
@@ -937,6 +1034,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Starting AI Data Analyst Agent...")
     print("=" * 60)
-    print("Dashboard: http://127.0.0.1:7860/")
-    print("Original Gradio interface: http://127.0.0.1:7860/gradio")
+    print("Dashboard:                   http://127.0.0.1:7860/")
+    print("AI Agent:                    http://127.0.0.1:7860/agent")
+    print("Legacy Gradio Dashboard:     http://127.0.0.1:7860/gradio")
+    print("Interactive Swagger Docs:    http://127.0.0.1:7860/docs")
     uvicorn.run(web_app, host="127.0.0.1", port=int(os.environ.get("ADAA_PORT", "7860")))

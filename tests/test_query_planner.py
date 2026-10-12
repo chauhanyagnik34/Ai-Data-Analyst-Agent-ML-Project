@@ -8,8 +8,8 @@ and natural language query parsing.
 import os
 import unittest
 import pandas as pd
-from data_loader import load_dataset
-from query_planner import plan_query, validate_plan
+from core.data_manager import load_dataset
+from agent.planner import plan_query, validate_plan
 
 
 class TestQueryPlanner(unittest.TestCase):
