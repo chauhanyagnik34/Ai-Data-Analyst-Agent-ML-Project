@@ -24,7 +24,7 @@ load_dotenv()
 
 # Default configuration parameters
 DEFAULT_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b-instruct")
 
 # Internal cache for status checks to prevent connection latency spikes
 _STATUS_CACHE = {"timestamp": 0.0, "result": None, "key": None}
@@ -45,7 +45,7 @@ def get_base_url() -> str:
 def get_model_name() -> str:
     """Retrieves the Ollama model name from environment variables."""
     model = os.getenv("OLLAMA_MODEL", DEFAULT_MODEL).strip()
-    return model if model else "llama3.2"
+    return model if model else "qwen3:4b-instruct"
 
 
 def check_api_status(

@@ -11,7 +11,7 @@ The **AI Data Analyst Agent** is a full-stack, conversational data analytics app
 
 Unlike conventional LLM wrappers that ask models to calculate mathematical figures directly (which leads to arithmetic hallucinations) or execute unverified LLM-generated code (which creates critical security risks), this application implements a **safe, decoupled architecture**:
 1. An **NLP Machine Learning Classifier** (`Scikit-Learn`) categorizes the query intent.
-2. An **LLM Query Planner** (`Ollama` local LLM via `llama3.2`) compiles the question into a structured JSON execution plan.
+2. An **LLM Query Planner** (`Ollama` local LLM via `qwen3:4b-instruct`) compiles the question into a structured JSON execution plan.
 3. A **Deterministic Analysis Engine** (`Pandas` & `NumPy`) calculates the verified numerical answer.
 4. An **Automated Visualization Engine** (`Matplotlib`) renders clean statistical plots.
 5. An interactive **Web Application** (`Gradio`) displays conversational answers, summary tables, and charts.
@@ -36,7 +36,7 @@ Business users and students often struggle to write complex SQL queries or Panda
 * Enable seamless drag-and-drop upload for `.csv` and `.xlsx` files with instant schema profiling.
 * Perform automatic Exploratory Data Analysis (EDA): row/column counts, missing values, duplicate checks, and descriptive statistics.
 * Implement a supervised **Machine Learning Intent Classifier** (TF-IDF + Logistic Regression) evaluating precision, recall, and F1-score across 11 intent classes.
-* Translate free-form English queries into validated JSON execution plans using local **Ollama** models (`llama3.2`).
+* Translate free-form English queries into validated JSON execution plans using local **Ollama** models (`qwen3:4b-instruct`).
 * Safely compute 20 distinct tabular analytical tasks in Pandas without `eval()` or `exec()`.
 * Automatically generate publication-grade charts (bar charts, histograms, scatter plots, trend lines).
 * Maintain conversational context for follow-up questions (e.g. *"What is the maximum?"* after asking about salary).
@@ -105,7 +105,7 @@ The system supports the full 5-stage **Knowledge Discovery in Databases (KDD)** 
 | **Web Interface** | `gradio` (>=4.20.0) | Reactive web UI with chat, tables, and plot rendering |
 | **Environment Mgmt** | `python-dotenv` (>=1.0.1) | Environment variable management via `.env` |
 | **LLM Communication** | `requests` (>=2.31.0) | HTTP REST communication with local Ollama daemon (`/api/chat`, `/api/tags`) |
-| **Local LLM Engine** | **Ollama** | Local LLM server running `llama3.2` on `http://localhost:11434` |
+| **Local LLM Engine** | **Ollama** | Local LLM server running `qwen3:4b-instruct` on `http://localhost:11434` |
 
 ---
 
@@ -245,7 +245,7 @@ Ai-Data-Analyst-Agent-ML-Project/
 1. Download and install Ollama from [ollama.com](https://ollama.com).
 2. Pull the default lightweight model:
    ```bash
-   ollama pull llama3.2
+   ollama pull qwen3:4b-instruct
    ```
 3. Start the Ollama server (if not already running as a Windows background task):
    ```bash
@@ -275,8 +275,8 @@ Copy `.env.example` to `.env` (or edit existing `.env`):
 # Ollama base URL (defaults to http://localhost:11434)
 OLLAMA_BASE_URL=http://localhost:11434
 
-# Ollama model name (default: llama3.2)
-OLLAMA_MODEL=llama3.2
+# Ollama model name (default: qwen3:4b-instruct)
+OLLAMA_MODEL=qwen3:4b-instruct
 ```
 *No cloud API keys are required!* If Ollama is not active, the system automatically uses the built-in deterministic heuristic planner so the app remains fully functional.
 
@@ -297,7 +297,7 @@ http://127.0.0.1:7860
 ### Quick UI Tour:
 1. Click **"📊 Load Sample Employee Dataset"** (or upload your own CSV/Excel file).
 2. Expand **"📋 Dataset Profiling & Statistics"** to view descriptive statistics and missing values.
-3. Check the **LLM Status Badge**: Shows `🟢 LLM: Connected (Ollama - llama3.2)` or `🟡 Mode: Heuristic Fallback` with clear instructions.
+3. Check the **LLM Status Badge**: Shows `🟢 LLM: Connected (Ollama - qwen3:4b-instruct)` or `🟡 Mode: Heuristic Fallback` with clear instructions.
 4. Use one-click prompts or ask questions in plain English:
    * *"What is the average salary?"*
    * *"Show average salary by department"*
@@ -362,7 +362,7 @@ python evaluation.py
 
 ## 13. System Limitations & Offline Processing
 
-1. **Local Hardware Constraints**: Ollama runs on your local machine. Inference speed depends on your local CPU or GPU. Lightweight models such as `llama3.2` (3B) or `phi3` provide optimal performance on standard laptops.
+1. **Local Hardware Constraints**: Ollama runs on your local machine. Inference speed depends on your local CPU or GPU. Lightweight models such as `qwen3:4b-instruct` (3B) or `phi3` provide optimal performance on standard laptops.
 2. **Single-Table Scope**: The current release operates on single-table datasets. Multi-table relational joins (`JOIN` across multiple CSVs) are planned for a future release.
 3. **File Size Ceiling**: Uploads are restricted to 25 MB to maintain responsiveness in local memory.
 4. **Context Window**: Follow-up questions track recent conversational turns. Extensive multi-turn dialogues are pruned to prevent memory bloat.
