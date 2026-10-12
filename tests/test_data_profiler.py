@@ -6,8 +6,14 @@ column typing, duplicate detection, and missing value calculations.
 """
 
 import os
+import sys
 import unittest
 import pandas as pd
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from data_loader import load_dataset
 from data_profiler import (
     get_column_types,
@@ -22,7 +28,7 @@ from data_profiler import (
 class TestDataProfiler(unittest.TestCase):
 
     def setUp(self):
-        sample_csv = os.path.join("datasets", "sample_data.csv")
+        sample_csv = os.path.join(PROJECT_ROOT, "datasets", "sample_data.csv")
         self.df, _ = load_dataset(sample_csv)
 
     def test_column_types(self):

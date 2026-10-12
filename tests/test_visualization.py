@@ -6,8 +6,14 @@ matplotlib Figure returns, and graceful error handling on bad inputs.
 """
 
 import os
+import sys
 import unittest
 import matplotlib.pyplot as plt
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from data_loader import load_dataset
 from analysis_engine import execute_plan
 from visualization import (
@@ -22,7 +28,7 @@ from visualization import (
 class TestVisualization(unittest.TestCase):
 
     def setUp(self):
-        sample_path = os.path.join("datasets", "sample_data.csv")
+        sample_path = os.path.join(PROJECT_ROOT, "datasets", "sample_data.csv")
         self.df, _ = load_dataset(sample_path)
 
     def tearDown(self):
@@ -60,6 +66,28 @@ class TestVisualization(unittest.TestCase):
         plan = {"task": "group_aggregate", "group_by": "Department", "column": "Salary", "aggregation": "mean"}
         res = execute_plan(self.df, plan)
         fig, err = create_auto_chart(res, self.df)
+        self.assertIsNone(err)
+        self.assertIsNotNone(fig)
+
+    def test_auto_chart_on_visualize_task(self):
+        """Test auto chart generator on direct visualize task."""
+        plan = {"task": "visualize", "chart": "bar", "column": "Salary"}
+        res = execute_plan(self.df, plan)
+        fig, err = create_auto_chart(res, self.df)
+        self.assertIsNone(err)
+        self.assertIsNotNone(fig)
+
+    def test_create_box_plot(self):
+        """Test box plot generation."""
+        from visualization import create_box_plot
+        fig, err = create_box_plot(self.df, col="Salary")
+        self.assertIsNone(err)
+        self.assertIsNotNone(fig)
+
+    def test_create_pie_chart(self):
+        """Test pie chart generation."""
+        from visualization import create_pie_chart
+        fig, err = create_pie_chart(self.df, col="Department")
         self.assertIsNone(err)
         self.assertIsNotNone(fig)
 

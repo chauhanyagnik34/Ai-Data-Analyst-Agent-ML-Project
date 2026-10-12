@@ -6,8 +6,14 @@ pronoun/implicit column resolution, and context reset safety.
 """
 
 import os
+import sys
 import unittest
 import pandas as pd
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from data_loader import load_dataset
 from query_planner import plan_query
 
@@ -15,7 +21,7 @@ from query_planner import plan_query
 class TestConversationalFollowUp(unittest.TestCase):
 
     def setUp(self):
-        sample_path = os.path.join("datasets", "sample_data.csv")
+        sample_path = os.path.join(PROJECT_ROOT, "datasets", "sample_data.csv")
         self.df, _ = load_dataset(sample_path)
 
     def test_multi_turn_followup_resolution(self):

@@ -5,8 +5,8 @@ Translates natural-language questions into safe, structured JSON execution plans
 
 Architecture:
 1. Constructs a strict schema-aware prompt with few-shot examples.
-2. Calls the LLM (Gemini) requesting structured JSON output.
-3. Fallback Heuristic Planner: If LLM API key is not configured or fails,
+2. Calls the local LLM (Ollama Llama 3.2) requesting structured JSON output.
+3. Fallback Heuristic Planner: If local LLM is unreachable or fails,
    a rule-based parser handles common questions so the app remains fully demonstrable!
 4. Plan Validator: Checks plan integrity, column existence, and type constraints
    before sending to the analysis engine.
@@ -37,6 +37,9 @@ SUPPORTED_TASKS = [
     "missing_values",
     "duplicates",
     "correlation",
+    "fill_missing",
+    "scale_data",
+    "visualize",
 ]
 
 
@@ -100,7 +103,12 @@ def validate_plan(plan: dict, df: pd.DataFrame) -> tuple:
     if not isinstance(plan, dict):
         return None, "Validation Error: Plan is not a valid dictionary."
 
-    task = plan.get("task", "").lower().strip()
+    # Sanitize string null/none values from LLM output
+    for k, v in list(plan.items()):
+        if isinstance(v, str) and v.strip().lower() in ["null", "none", "nan", "undefined", ""]:
+            plan[k] = None
+
+    task = plan.get("task", "").lower().strip() if plan.get("task") else ""
     if not task:
         return None, "Validation Error: Plan missing 'task' field."
 
@@ -132,6 +140,46 @@ def validate_plan(plan: dict, df: pd.DataFrame) -> tuple:
             if not pd.api.types.is_numeric_dtype(df[matched_col]):
                 return None, f"Validation Error: Task '{task}' requires a numeric column, but '{matched_col}' is non-numeric."
 
+    # Validate column for missing_values / duplicates if specified
+    if task in ["missing_values", "duplicates"] and col:
+        matched_col = _resolve_column_name(df, col)
+        if not matched_col:
+            return None, f"Validation Error: Column '{col}' does not exist in dataset."
+        plan["column"] = matched_col
+
+    # Validate fill_missing
+    if task == "fill_missing":
+        if not col:
+            return None, "Validation Error: Task 'fill_missing' requires a 'column' parameter."
+        matched_col = _resolve_column_name(df, col)
+        if not matched_col:
+            return None, f"Validation Error: Column '{col}' does not exist in dataset."
+        plan["column"] = matched_col
+        strategy = str(plan.get("strategy", "mean")).lower().strip()
+        if strategy not in ["mean", "median", "mode", "constant", "zero", "drop", "custom"]:
+            strategy = "mean"
+        plan["strategy"] = strategy
+
+    # Validate scale_data
+    if task == "scale_data":
+        if not col:
+            num_cols = get_column_types(df)["numerical"]
+            if num_cols:
+                col = num_cols[0]
+                plan["column"] = col
+            else:
+                return None, "Validation Error: Task 'scale_data' requires a numeric column."
+        matched_col = _resolve_column_name(df, col)
+        if not matched_col:
+            return None, f"Validation Error: Column '{col}' does not exist in dataset."
+        if not pd.api.types.is_numeric_dtype(df[matched_col]):
+            return None, f"Validation Error: Task 'scale_data' requires a numeric column, but '{matched_col}' is non-numeric."
+        plan["column"] = matched_col
+        method = str(plan.get("method", "zscore")).lower().strip()
+        if method not in ["zscore", "minmax", "robust", "standard"]:
+            method = "zscore"
+        plan["method"] = method
+
     # Validate group_by
     if task == "group_aggregate":
         grp = plan.get("group_by")
@@ -156,6 +204,49 @@ def validate_plan(plan: dict, df: pd.DataFrame) -> tuple:
             if not matched_cond:
                 return None, f"Validation Error: Condition column '{cond_col}' not found."
             plan["condition_col"] = matched_cond
+
+    # Validate visualize
+    if task == "visualize":
+        chart = str(plan.get("chart", "bar")).lower().strip()
+        valid_charts = ["bar", "bargraph", "bar_chart", "barchart", "histogram", "hist", "scatter", "scatter_plot", "scatterplot", "line", "line_chart", "line_plot", "box", "boxplot", "box_plot", "pie", "pie_chart", "heatmap", "correlation"]
+        if chart not in valid_charts:
+            chart = "bar"
+        plan["chart"] = chart
+
+        if col:
+            matched_col = _resolve_column_name(df, col)
+            if not matched_col:
+                return None, f"Validation Error: Column '{col}' does not exist in dataset."
+            plan["column"] = matched_col
+
+        x_col = plan.get("x_col")
+        if x_col:
+            matched_x = _resolve_column_name(df, x_col)
+            if not matched_x:
+                return None, f"Validation Error: Column '{x_col}' does not exist in dataset."
+            plan["x_col"] = matched_x
+
+        y_col = plan.get("y_col")
+        if y_col:
+            matched_y = _resolve_column_name(df, y_col)
+            if not matched_y:
+                return None, f"Validation Error: Column '{y_col}' does not exist in dataset."
+            plan["y_col"] = matched_y
+
+        grp = plan.get("group_by")
+        if grp:
+            matched_grp = _resolve_column_name(df, grp)
+            if not matched_grp:
+                return None, f"Validation Error: Group-by column '{grp}' not found."
+            plan["group_by"] = matched_grp
+
+        # If no column is specified and not a heatmap, pick the first numerical column
+        if not plan.get("column") and not plan.get("x_col") and chart not in ["heatmap", "correlation"]:
+            num_cols = get_column_types(df)["numerical"]
+            if num_cols:
+                plan["column"] = num_cols[0]
+            elif len(df.columns) > 0:
+                plan["column"] = df.columns[0]
 
     return plan, None
 
@@ -203,9 +294,12 @@ Supported Tasks:
 - "filter": Filter records satisfying a condition
 - "count_where": Count records satisfying a condition
 - "group_aggregate": Group by a categorical column and aggregate ("aggregation": "mean"|"sum"|"count"|"median")
-- "missing_values": Count missing values
-- "duplicates": Find duplicate rows
+- "missing_values": Count missing values (specify "column": "ColumnName" for a specific column, or null for whole dataset)
+- "duplicates": Find duplicate rows (specify "column": "ColumnName" for duplicates in a specific column, or null for whole dataset)
 - "correlation": Correlation matrix of numerical columns
+- "fill_missing": Impute missing values ("strategy": "mean"|"median"|"mode"|"zero"|"constant")
+- "scale_data": Scale or normalize column ("method": "zscore"|"minmax"|"robust")
+- "visualize": Create chart ("chart": "bar"|"histogram"|"scatter"|"line"|"box"|"pie"|"heatmap", "column": "Col", "x_col": "Col1", "y_col": "Col2")
 
 Output JSON Schema:
 {{
@@ -229,7 +323,7 @@ Respond with ONLY the JSON plan. Do not include markdown or explanations.
 
 
 def _llm_generate_plan(question: str, df: pd.DataFrame, conversation_history: list = None) -> tuple:
-    """Sends prompt to Gemini LLM and parses JSON plan."""
+    """Sends prompt to local Ollama Llama 3.2 LLM and parses JSON plan."""
     prompt = _build_planner_prompt(question, df, conversation_history)
     system_inst = "You are a precise data analysis compiler. Output strictly valid JSON without preamble."
 
@@ -245,6 +339,107 @@ def _llm_generate_plan(question: str, df: pd.DataFrame, conversation_history: li
 
 
 # -------------------------------------------------------------
+def _extract_matched_column(q: str, candidate_cols: list) -> str:
+    """
+    Safely finds the best matching column name in a question using regex word boundaries.
+    Prevents false positives (e.g. 'age' matching inside 'average', 'tax' in 'syntax').
+    """
+    if not candidate_cols or not q:
+        return None
+
+    matches = []
+    q_lower = q.lower()
+
+    for col in candidate_cols:
+        col_name = str(col)
+        col_clean = col_name.lower().strip()
+        col_spaced = col_clean.replace("_", " ")
+
+        # 1. Exact whole-word match for column name with word boundaries
+        pattern_spaced = r"\b" + re.escape(col_spaced) + r"\b"
+        pattern_clean = r"\b" + re.escape(col_clean) + r"\b"
+
+        m1 = re.search(pattern_spaced, q_lower)
+        m2 = re.search(pattern_clean, q_lower)
+        m = m1 or m2
+        if m:
+            matches.append((200 + len(col_clean), m.start(), col))
+            continue
+
+        # 2. Token match for compound columns (e.g. 'total_sales' matched by 'sales')
+        tokens = [t for t in re.split(r"[_\s]+", col_clean) if len(t) > 2]
+        STOP_TOKENS = {
+            "the", "and", "for", "row", "col", "data", "val", "num", "all",
+            "any", "avg", "sum", "max", "min", "per", "each", "count",
+            "rate", "type", "date", "year", "time", "list", "total", "average", "value", "values"
+        }
+        for token in tokens:
+            if token in STOP_TOKENS:
+                continue
+            token_pattern = r"\b" + re.escape(token) + r"\b"
+            m_token = re.search(token_pattern, q_lower)
+            if m_token:
+                matches.append((100 + len(token), m_token.start(), col))
+                break
+
+    if not matches:
+        return None
+
+    # Sort by match priority score descending, then by earliest appearance in text
+    matches.sort(key=lambda x: (x[0], -x[1]), reverse=True)
+    return matches[0][2]
+
+
+def _extract_all_matched_columns(q: str, candidate_cols: list) -> list:
+    """
+    Finds all unique columns mentioned in the query, ordered by their appearance in the text.
+    """
+    if not candidate_cols or not q:
+        return []
+
+    matches = []
+    q_lower = q.lower()
+
+    for col in candidate_cols:
+        col_clean = str(col).lower().strip()
+        col_spaced = col_clean.replace("_", " ")
+
+        p1 = r"\b" + re.escape(col_spaced) + r"\b"
+        p2 = r"\b" + re.escape(col_clean) + r"\b"
+        m1 = re.search(p1, q_lower)
+        m2 = re.search(p2, q_lower)
+        m = m1 or m2
+        if m:
+            matches.append((m.start(), col))
+            continue
+
+        # Check tokens for compound column names
+        tokens = [t for t in re.split(r"[_\s]+", col_clean) if len(t) > 2]
+        STOP_TOKENS = {
+            "the", "and", "for", "row", "col", "data", "val", "num", "all",
+            "any", "avg", "sum", "max", "min", "per", "each", "count",
+            "rate", "type", "date", "year", "time", "list", "total", "average", "value", "values"
+        }
+        for token in tokens:
+            if token in STOP_TOKENS:
+                continue
+            token_pattern = r"\b" + re.escape(token) + r"\b"
+            m_token = re.search(token_pattern, q_lower)
+            if m_token:
+                matches.append((m_token.start(), col))
+                break
+
+    matches.sort(key=lambda x: x[0])
+    seen = set()
+    result = []
+    for _, col in matches:
+        if col not in seen:
+            seen.add(col)
+            result.append(col)
+    return result
+
+
+# -------------------------------------------------------------
 # Heuristic Fallback Planner (Guarantees zero-failure demo)
 # -------------------------------------------------------------
 
@@ -255,8 +450,9 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
     """
     q = question.lower()
     columns = list(df.columns)
-    num_cols = get_column_types(df)["numerical"]
-    cat_cols = get_column_types(df)["categorical"]
+    col_types = get_column_types(df)
+    num_cols = col_types["numerical"]
+    cat_cols = col_types["categorical"]
 
     # 1. Row & column counting
     if any(k in q for k in ["how many rows", "row count", "total rows", "number of rows", "number of records"]):
@@ -264,32 +460,195 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
     if any(k in q for k in ["how many columns", "column count", "total columns"]):
         return {"task": "count_columns"}
 
-    # 2. Missing values & duplicates
+    # 2. Fill / impute missing values
+    if any(k in q for k in ["fill", "impute", "replace null", "replace missing", "handle missing", "fillna"]):
+        col_match = _extract_matched_column(q, columns)
+        if not col_match:
+            missing_cols = [c for c in columns if df[c].isnull().sum() > 0]
+            col_match = missing_cols[0] if missing_cols else (num_cols[0] if num_cols else None)
+
+        strategy = "mean"
+        if "median" in q:
+            strategy = "median"
+        elif "mode" in q or "most frequent" in q or "common" in q:
+            strategy = "mode"
+        elif "zero" in q or " 0 " in q or "with 0" in q:
+            strategy = "zero"
+        elif "drop" in q or "remove" in q:
+            strategy = "drop"
+        elif "mean" in q or "average" in q:
+            strategy = "mean"
+
+        fill_val = None
+        m_val = re.search(r"(?:with|to|by)\s+['\"]?([a-zA-Z0-9_\s]+)['\"]?", q)
+        if m_val:
+            cand = m_val.group(1).strip()
+            if cand.lower() not in ["mean", "median", "mode", "mean value", "median value", "mode value", "zero", "average", "avg"]:
+                strategy = "constant"
+                fill_val = cand
+
+        return {
+            "task": "fill_missing",
+            "column": col_match,
+            "strategy": strategy,
+            "fill_value": fill_val,
+        }
+
+    # 3. Missing values & duplicates inspection
     if any(k in q for k in ["missing", "null", "empty", "nan"]):
+        col_match = _extract_matched_column(q, columns)
+        if col_match:
+            return {"task": "missing_values", "column": col_match}
         return {"task": "missing_values"}
+
     if "duplicate" in q:
+        col_match = _extract_matched_column(q, columns)
+        if col_match:
+            return {"task": "duplicates", "column": col_match}
         return {"task": "duplicates"}
     if "correlation" in q or "corr" in q:
         return {"task": "correlation"}
 
-    # 3. Find matched numeric and categorical columns specifically
-    matched_num_col = None
-    for col in num_cols:
-        col_clean = col.lower()
-        col_spaced = col_clean.replace("_", " ")
-        col_tokens = [t for t in col_clean.split("_") if len(t) > 2]
-        if col_clean in q or col_spaced in q or any(t in q for t in col_tokens):
-            matched_num_col = col
-            break
+    # Normalization & Scaling (Z-score, Min-Max, Standardization)
+    if any(k in q for k in ["normaliz", "standardiz", "scale", "z score", "zscore", "min max", "minmax", "robust"]):
+        col_match = _extract_matched_column(q, num_cols)
+        if not col_match:
+            col_match = num_cols[0] if num_cols else None
 
-    matched_cat_col = None
-    for col in cat_cols:
-        col_clean = col.lower()
-        col_spaced = col_clean.replace("_", " ")
-        col_tokens = [t for t in col_clean.split("_") if len(t) > 2]
-        if col_clean in q or col_spaced in q or any(t in q for t in col_tokens):
-            matched_cat_col = col
-            break
+        method = "zscore"
+        if any(k in q for k in ["min max", "minmax", "0 to 1", "0-1"]):
+            method = "minmax"
+        elif "robust" in q:
+            method = "robust"
+        elif any(k in q for k in ["z score", "zscore", "standardiz", "standard"]):
+            method = "zscore"
+
+        return {
+            "task": "scale_data",
+            "column": col_match,
+            "method": method,
+        }
+
+    # ---------------------------------------------------------
+    # Visualizations & Charts (Bar Graph, Histogram, Scatter, Line, Box, Pie, Heatmap)
+    # ---------------------------------------------------------
+    is_vis = any(k in q for k in [
+        "distribution", "distrib",
+        "bargraph", "bar graph", "bar chart", "barchart",
+        "histogram", "hist",
+        "scatter", "scatter plot", "scatterplot",
+        "line chart", "line graph", "line plot",
+        "box plot", "boxplot", "box-plot",
+        "pie chart", "piechart",
+        "heatmap", "heat map",
+        "visualiz", "plot", "graph", "chart", "draw"
+    ])
+
+    if is_vis:
+        # Determine specific chart type
+        chart_type = "bar"
+        if any(k in q for k in ["heatmap", "heat map", "correlation heatmap", "correlation matrix"]):
+            chart_type = "heatmap"
+        elif any(k in q for k in ["scatter", "scatter plot", "scatterplot"]):
+            chart_type = "scatter"
+        elif any(k in q for k in ["histogram", "hist"]):
+            chart_type = "histogram"
+        elif any(k in q for k in ["box plot", "boxplot", "box-plot"]):
+            chart_type = "box"
+        elif any(k in q for k in ["line chart", "line graph", "line plot", "trend line"]):
+            chart_type = "line"
+        elif any(k in q for k in ["pie chart", "piechart"]):
+            chart_type = "pie"
+        elif any(k in q for k in ["bargraph", "bar graph", "bar chart", "barchart", "bar"]):
+            chart_type = "bar"
+        elif "distribution" in q:
+            chart_type = "histogram"
+        else:
+            chart_type = "bar"
+
+        # Correlation heatmap
+        if chart_type == "heatmap":
+            return {"task": "visualize", "chart": "heatmap"}
+
+        # Extract all referenced columns in the query
+        all_cols = _extract_all_matched_columns(q, columns)
+
+        # Check for grouped category chart (e.g. "bar chart of Fare by Pclass")
+        group_col = None
+        m_by = re.search(r"\b(?:by|per|across|grouped by)\s+([a-zA-Z0-9_\s]+)", q)
+        if m_by:
+            group_col = _extract_matched_column(m_by.group(1).strip(), columns)
+
+        if group_col:
+            remaining = [c for c in all_cols if c != group_col]
+            target_col = remaining[0] if remaining else _extract_matched_column(q, num_cols)
+            if not target_col:
+                target_col = num_cols[0] if num_cols else group_col
+            return {
+                "task": "visualize",
+                "chart": chart_type,
+                "column": target_col,
+                "x_col": group_col,
+                "y_col": target_col,
+                "group_by": group_col,
+            }
+
+        # Multiple columns mentioned (e.g. "scatter plot of Age vs Fare")
+        if len(all_cols) >= 2:
+            x_c = all_cols[0]
+            y_c = all_cols[1]
+            if chart_type == "bar" and any(k in q for k in [" vs ", " versus ", " against ", " and "]) and x_c in num_cols and y_c in num_cols:
+                chart_type = "scatter"
+
+            return {
+                "task": "visualize",
+                "chart": chart_type,
+                "x_col": x_c,
+                "y_col": y_c,
+                "column": y_c,
+            }
+
+        # Single column mentioned (e.g. "create bargraph of Age", "histogram of Age")
+        col_match = all_cols[0] if all_cols else _extract_matched_column(q, columns)
+        if not col_match and conversation_history and len(conversation_history) > 0:
+            last_turn = conversation_history[-1]
+            prev_col = last_turn.get("column") or last_turn.get("analyzed_column")
+            if prev_col and prev_col in columns:
+                col_match = prev_col
+
+        if not col_match:
+            col_match = num_cols[0] if num_cols else (columns[0] if columns else None)
+
+        return {
+            "task": "visualize",
+            "chart": chart_type,
+            "column": col_match,
+        }
+
+    # 3. Find matched numeric column specifically using word boundaries
+    matched_num_col = _extract_matched_column(q, num_cols)
+    if not matched_num_col:
+        # Also check all columns in df that are numeric-convertible
+        convertible_cols = [c for c in columns if c not in num_cols and pd.to_numeric(df[c], errors="coerce").notnull().mean() > 0.5]
+        matched_num_col = _extract_matched_column(q, convertible_cols)
+
+    # 4. Group by / category comparison ("average salary by department", "fare by pclass")
+    group_col = None
+    m_by = re.search(r"\b(?:by|per|across|for each|each|group by|grouped by)\s+([a-zA-Z0-9_\s]+)", q)
+    if m_by:
+        target_phrase = m_by.group(1).strip()
+        group_col = _extract_matched_column(target_phrase, columns)
+
+    # Fallback group check: if query has grouping keywords and matches a categorical column
+    matched_cat_col = _extract_matched_column(q, cat_cols)
+    if not group_col and matched_cat_col:
+        if any(k in q for k in [" by ", " per ", " across ", " each ", "compare", "breakdown", "distribution"]):
+            group_col = matched_cat_col
+
+    # If grouping, ensure target_num_col is distinct from group_col
+    if group_col and matched_num_col == group_col:
+        remaining = [c for c in num_cols if c != group_col]
+        matched_num_col = _extract_matched_column(q, remaining) if remaining else None
 
     # Context fallback: If user asks follow-up like "What is the maximum?" without naming a column,
     # intelligently inherit the analyzed column from the most recent turn
@@ -301,18 +660,17 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
 
     target_num_col = matched_num_col if matched_num_col else (num_cols[0] if num_cols else None)
 
-    # 4. Group by / category comparison ("average salary by department", "sales per region")
-    if "by" in q or "per" in q or "across" in q or "each" in q or matched_cat_col:
-        if matched_cat_col:
-            agg = "mean" if any(k in q for k in ["average", "mean", "avg"]) else ("sum" if ("sum" in q or "total" in q) else "count")
-            chart_type = "bar" if any(k in q for k in ["chart", "plot", "graph", "bar"]) else None
-            return {
-                "task": "group_aggregate",
-                "group_by": matched_cat_col,
-                "column": target_num_col,
-                "aggregation": agg,
-                "chart": chart_type,
-            }
+    # Execute group aggregation if group_col was identified
+    if group_col:
+        agg = "mean" if any(k in q for k in ["average", "mean", "avg"]) else ("sum" if any(k in q for k in ["sum", "total"]) else ("count" if "count" in q else "mean"))
+        chart_type = "bar" if any(k in q for k in ["chart", "plot", "graph", "bar"]) else None
+        return {
+            "task": "group_aggregate",
+            "group_by": group_col,
+            "column": target_num_col,
+            "aggregation": agg,
+            "chart": chart_type,
+        }
 
     # 5. Ranking (Top N, Bottom N)
     if "top" in q or "rank" in q:
@@ -334,7 +692,7 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
     if any(k in q for k in ["lowest", "minimum", "min", "least"]):
         return {"task": "min", "column": target_num_col}
 
-    # 6. Simple Aggregations
+    # 7. Simple Aggregations
     if any(k in q for k in ["average", "mean", "avg"]):
         return {"task": "mean", "column": target_num_col}
 
@@ -347,7 +705,7 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
     if any(k in q for k in ["standard deviation", "std dev", "std"]):
         return {"task": "std", "column": target_num_col}
 
-    # 6. Filter / condition ("greater than 50000", "> 50000")
+    # 8. Filter / condition ("greater than 50000", "> 50000")
     m_num = re.search(r"(\d+[\d,]*)", q)
     if m_num and any(k in q for k in [">", "<", "greater", "more", "less", "above", "higher than"]):
         val = float(m_num.group(1).replace(",", ""))
@@ -363,13 +721,24 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
 
 
 def _resolve_column_name(df: pd.DataFrame, name: str) -> str:
-    """Helper to resolve column names case-insensitively."""
-    if not name:
+    """Helper to resolve column names case-insensitively and handle spaces/underscores."""
+    if not name or df is None:
+        return None
+    cleaned_name = str(name).strip().lower()
+    if cleaned_name in ["null", "none", "nan", "undefined", ""]:
         return None
     if name in df.columns:
         return name
-    lower_map = {col.lower(): col for col in df.columns}
-    return lower_map.get(name.lower().strip())
+    lower_map = {str(col).lower(): col for col in df.columns}
+    if cleaned_name in lower_map:
+        return lower_map[cleaned_name]
+
+    # Handle underscore vs space variations
+    normalized_name = re.sub(r"[\s_]+", "", cleaned_name)
+    for col in df.columns:
+        if re.sub(r"[\s_]+", "", str(col).lower()) == normalized_name:
+            return col
+    return None
 
 
 # Standalone demonstration block

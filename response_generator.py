@@ -13,7 +13,7 @@ import pandas as pd
 from llm_client import call_llm, check_api_status
 
 
-def generate_response(question: str, analysis_result: dict, dataset_name: str = "dataset") -> str:
+def generate_response(question: str, analysis_result: dict, dataset_name: str = "dataset", df: pd.DataFrame = None) -> str:
     """
     Produces a natural language answer based on verified analytical results.
 
@@ -21,6 +21,7 @@ def generate_response(question: str, analysis_result: dict, dataset_name: str = 
         question (str): The user's input question.
         analysis_result (dict): Output from analysis_engine.execute_plan.
         dataset_name (str): Label/filename of the dataset.
+        df (pd.DataFrame, optional): Full dataframe for contextual statistics.
 
     Returns:
         str: Concise, verified conversational response.
@@ -38,19 +39,19 @@ def generate_response(question: str, analysis_result: dict, dataset_name: str = 
     val = analysis_result.get("value")
     engine_msg = analysis_result.get("message", "")
 
-    # Attempt LLM natural language phrasing if API key is configured
+    # Attempt LLM natural language phrasing if local Ollama is configured
     status = check_api_status()
     if status["configured"]:
         llm_text = _generate_llm_grounded_text(question, task, val, engine_msg)
         if llm_text:
             return llm_text
 
-    # Deterministic fallback response generation
-    return _generate_deterministic_text(task, res_type, val, engine_msg)
+    # Deterministic formatted response generation
+    return _generate_deterministic_text(task, res_type, val, engine_msg, question=question, analysis_result=analysis_result, df=df)
 
 
 def _generate_llm_grounded_text(question: str, task: str, value, engine_msg: str) -> str:
-    """Calls Gemini to rephrase the verified computation cleanly."""
+    """Calls local Ollama Llama 3.2 to rephrase the verified computation cleanly."""
     val_repr = value.to_string(index=False) if isinstance(value, pd.DataFrame) else str(value)
 
     prompt = f"""
@@ -75,16 +76,44 @@ Instructions:
     return None
 
 
-def _generate_deterministic_text(task: str, res_type: str, value, engine_msg: str) -> str:
-    """Fallback text generator when offline or without API key."""
+def _generate_deterministic_text(task: str, res_type: str, value, engine_msg: str, question: str = "", analysis_result: dict = None, df: pd.DataFrame = None) -> str:
+    """Fallback text generator formatting insights into structured markdown."""
+    q_lower = (question or "").lower()
+    target_col = None
+    if analysis_result:
+        target_col = analysis_result.get("column") or analysis_result.get("task_column") or analysis_result.get("y_col")
+
+    # Special handling for distribution & histograms
+    if (task in ["visualize", "plot", "chart", "graph"] or "distribution" in q_lower) and df is not None:
+        if target_col and target_col in df.columns and pd.api.types.is_numeric_dtype(df[target_col]):
+            series = df[target_col].dropna()
+            mean_v = round(float(series.mean()), 1)
+            median_v = round(float(series.median()), 1)
+            min_v = int(series.min()) if float(series.min()).is_integer() else round(float(series.min()), 1)
+            max_v = int(series.max()) if float(series.max()).is_integer() else round(float(series.max()), 1)
+            q25 = round(float(series.quantile(0.25)))
+            q75 = round(float(series.quantile(0.75)))
+            skew = series.skew()
+            skew_desc = "right-skewed" if skew > 0.4 else ("left-skewed" if skew < -0.4 else "approximately symmetric")
+            unit = " years" if target_col.lower() == "age" else ""
+
+            return f"""**{target_col} Distribution Insights**
+The {target_col.lower()} distribution is {skew_desc}, with most passengers between {q25} and {q75}{unit}.
+• Mean {target_col.lower()}: {mean_v}{unit}
+• Median {target_col.lower()}: {median_v}{unit}
+• Youngest: {min_v}{unit} | Oldest: {max_v}{unit}"""
+
+    if task in ["visualize", "plot", "chart", "graph"]:
+        return f"**Visualization Generated**\n{engine_msg}\n\n*The visualization plot is rendered below along with the data breakdown table.*"
+
     if res_type == "scalar":
-        return f"**[Result]**: {engine_msg}"
+        return f"**Result Analysis**\n{engine_msg}"
 
     elif res_type == "table" and isinstance(value, pd.DataFrame):
         rows_count = len(value)
-        return f"**[Result]**: {engine_msg}\n\n*Displaying {rows_count} relevant record(s) in the table below.*"
+        return f"**Result Analysis**\n{engine_msg}\n\n*Displaying {rows_count} relevant record(s) in the table below.*"
 
-    return f"**[Result]**: {engine_msg}"
+    return f"**Result Analysis**\n{engine_msg}"
 
 
 # Standalone demonstration block

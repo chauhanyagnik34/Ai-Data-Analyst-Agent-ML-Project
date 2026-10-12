@@ -6,8 +6,14 @@ and natural language query parsing.
 """
 
 import os
+import sys
 import unittest
 import pandas as pd
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from data_loader import load_dataset
 from query_planner import plan_query, validate_plan
 
@@ -15,7 +21,7 @@ from query_planner import plan_query, validate_plan
 class TestQueryPlanner(unittest.TestCase):
 
     def setUp(self):
-        sample_path = os.path.join("datasets", "sample_data.csv")
+        sample_path = os.path.join(PROJECT_ROOT, "datasets", "sample_data.csv")
         self.df, _ = load_dataset(sample_path)
 
     def test_validate_valid_mean_plan(self):
@@ -58,6 +64,31 @@ class TestQueryPlanner(unittest.TestCase):
         self.assertIsNone(e3)
         self.assertEqual(p3["task"], "group_aggregate")
         self.assertEqual(p3["group_by"], "Department")
+
+        p4, e4 = plan_query("fill missing value of Performance_Score column with Mean value", self.df)
+        self.assertIsNone(e4)
+        self.assertEqual(p4["task"], "fill_missing")
+        self.assertEqual(p4["column"], "Performance_Score")
+        self.assertEqual(p4["strategy"], "mean")
+
+        p5, e5 = plan_query("Normalized Salary column using Z score", self.df)
+        self.assertIsNone(e5)
+        self.assertEqual(p5["task"], "scale_data")
+        self.assertEqual(p5["column"], "Salary")
+        self.assertEqual(p5["method"], "zscore")
+
+        p6, e6 = plan_query("create bargraph of Salary", self.df)
+        self.assertIsNone(e6)
+        self.assertEqual(p6["task"], "visualize")
+        self.assertEqual(p6["chart"], "bar")
+        self.assertEqual(p6["column"], "Salary")
+
+        p7, e7 = plan_query("scatter plot of Experience_Years vs Salary", self.df)
+        self.assertIsNone(e7)
+        self.assertEqual(p7["task"], "visualize")
+        self.assertEqual(p7["chart"], "scatter")
+        self.assertEqual(p7["x_col"], "Experience_Years")
+        self.assertEqual(p7["y_col"], "Salary")
 
 
 if __name__ == "__main__":

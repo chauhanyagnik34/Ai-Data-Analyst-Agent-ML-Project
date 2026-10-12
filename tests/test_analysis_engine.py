@@ -6,8 +6,14 @@ statistical correctness, filtering, aggregations, and safe error handling.
 """
 
 import os
+import sys
 import unittest
 import pandas as pd
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from data_loader import load_dataset
 from analysis_engine import execute_plan
 
@@ -15,7 +21,7 @@ from analysis_engine import execute_plan
 class TestAnalysisEngine(unittest.TestCase):
 
     def setUp(self):
-        csv_path = os.path.join("datasets", "sample_data.csv")
+        csv_path = os.path.join(PROJECT_ROOT, "datasets", "sample_data.csv")
         self.df, _ = load_dataset(csv_path)
 
     def test_count_rows_and_columns(self):
@@ -101,6 +107,48 @@ class TestAnalysisEngine(unittest.TestCase):
         res = execute_plan(self.df, {"task": "mean", "column": "Department"})
         self.assertEqual(res["status"], "error")
         self.assertIn("requires a numeric column", res["error"])
+
+    def test_fill_missing_numerical(self):
+        """Test filling missing values with mean."""
+        initial_missing = self.df["Performance_Score"].isnull().sum()
+        self.assertGreater(initial_missing, 0)
+        res = execute_plan(self.df, {
+            "task": "fill_missing",
+            "column": "Performance_Score",
+            "strategy": "mean",
+        })
+        self.assertEqual(res["status"], "success")
+        self.assertIn("modified_df", res)
+        self.assertEqual(res["modified_df"]["Performance_Score"].isnull().sum(), 0)
+
+    def test_scale_data_zscore(self):
+        """Test Z-score normalization of numeric column."""
+        res = execute_plan(self.df, {
+            "task": "scale_data",
+            "column": "Salary",
+            "method": "zscore",
+        })
+        self.assertEqual(res["status"], "success")
+        self.assertIn("modified_df", res)
+        self.assertIn("Salary_zscore", res["modified_df"].columns)
+        # Check that mean of zscore column is approximately 0
+        self.assertAlmostEqual(res["modified_df"]["Salary_zscore"].mean(), 0.0, places=1)
+
+    def test_visualize_operations(self):
+        """Test direct visualization task execution in analysis engine."""
+        res_bar = execute_plan(self.df, {"task": "visualize", "chart": "bar", "column": "Salary"})
+        self.assertEqual(res_bar["status"], "success")
+        self.assertEqual(res_bar["result_type"], "table")
+        self.assertIn("chart_type", res_bar)
+
+        res_scatter = execute_plan(self.df, {
+            "task": "visualize",
+            "chart": "scatter",
+            "x_col": "Experience_Years",
+            "y_col": "Salary",
+        })
+        self.assertEqual(res_scatter["status"], "success")
+        self.assertEqual(res_scatter["chart_type"], "scatter")
 
     def test_safe_error_on_unsupported_task(self):
         """Test handling of unsupported task."""

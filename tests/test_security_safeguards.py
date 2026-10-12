@@ -9,8 +9,14 @@ Security and defensive verification suite:
 """
 
 import os
+import sys
 import unittest
 import pandas as pd
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from data_loader import load_dataset
 from query_planner import plan_query, validate_plan
 from analysis_engine import execute_plan
@@ -19,7 +25,7 @@ from analysis_engine import execute_plan
 class TestSecuritySafeguards(unittest.TestCase):
 
     def setUp(self):
-        sample_path = os.path.join("datasets", "sample_data.csv")
+        sample_path = os.path.join(PROJECT_ROOT, "datasets", "sample_data.csv")
         self.df, _ = load_dataset(sample_path)
 
     def test_rejection_of_oversized_query(self):

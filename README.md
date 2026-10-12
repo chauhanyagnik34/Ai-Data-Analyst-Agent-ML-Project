@@ -11,7 +11,7 @@ The **AI Data Analyst Agent** is a full-stack, conversational data analytics app
 
 Unlike conventional LLM wrappers that ask models to calculate mathematical figures directly (which leads to hallucinations) or execute unverified LLM-generated code (which creates critical security risks), this application implements a **safe, decoupled architecture**:
 1. An **NLP Machine Learning Classifier** (`Scikit-Learn`) categorizes the query intent.
-2. An **LLM Query Planner** (`Google Gemini`) compiles the question into a structured JSON execution plan.
+2. An **LLM Query Planner** (`Ollama Llama 3.2`) compiles the question into a structured JSON execution plan.
 3. A **Deterministic Analysis Engine** (`Pandas` & `NumPy`) calculates the verified numerical answer.
 4. An **Automated Visualization Engine** (`Matplotlib`) renders clean statistical plots.
 5. An interactive **Web Application** (`Gradio`) displays conversational answers, summary tables, and charts.
@@ -63,8 +63,8 @@ Business users and students often struggle to write complex SQL queries or Panda
 | **Machine Learning** | `scikit-learn` (>=1.4.0) | TF-IDF text vectorization, Logistic Regression classifier, and evaluation metrics |
 | **Visualization** | `matplotlib` (>=3.8.0) | Clean figure rendering using server-safe `Agg` backend |
 | **Web Interface** | `gradio` (>=4.20.0) | Reactive web UI with chat, tables, and plot rendering |
-| **Environment Mgmt** | `python-dotenv` (>=1.0.1) | Secure API key isolation via `.env` |
-| **LLM Integration** | `google-genai` (>=0.1.0) | Google Gemini 1.5/2.0 Flash official API SDK |
+| **Environment Mgmt** | `python-dotenv` (>=1.0.1) | Environment configuration via `.env` |
+| **LLM Integration** | `requests` (>=2.28.0) | Local Ollama REST API with Llama 3.2 |
 
 ---
 
@@ -124,7 +124,7 @@ ai-data-analyst-agent/
 ├── app.py                      # Main Gradio application (UI & event orchestration)
 ├── data_loader.py              # Secure CSV & Excel loader with format & size guards
 ├── data_profiler.py            # Automated dataset profiling & descriptive statistics
-├── llm_client.py               # Modular Google Gemini API integration with JSON mode
+├── llm_client.py               # Modular local Ollama API client with JSON mode
 ├── query_planner.py            # Converts natural language into validated JSON plans
 ├── analysis_engine.py          # Deterministic Pandas engine executing 20 analytical tasks
 ├── visualization.py            # Matplotlib figure generation (Bar, Line, Histogram, Scatter)
@@ -180,14 +180,17 @@ python -m venv venv
 .\venv\Scripts\pip install -r requirements.txt
 ```
 
-### Step 4: Configure the Gemini API Key (Free)
-1. Obtain a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey).
-2. Open [.env](file:///c:/Users/yagni/OneDrive/Desktop/ML%20Project/.env) in your editor and enter your key:
-   ```ini
-   GEMINI_API_KEY=AIzaSyYourActualKeyHere
-   GEMINI_MODEL=gemini-1.5-flash
+### Step 4: Configure Local Ollama (Llama 3.2)
+1. Ensure Ollama is installed and running:
+   ```powershell
+   ollama serve
    ```
-*(Note: If you run without an API key, the built-in Heuristic Planner will automatically take over, allowing full offline testing!)*
+2. Pull the lightweight, high-speed Llama 3.2 model:
+   ```powershell
+   ollama pull llama3.2
+   ```
+3. The application connects automatically to `http://127.0.0.1:11434` with model `llama3.2` as configured in [.env](file:///c:/Users/yagni/OneDrive/Desktop/ML%20Project/.env).
+*(Note: If Ollama is offline, the built-in Heuristic Planner will automatically take over, allowing fallback offline testing!)*
 
 ---
 

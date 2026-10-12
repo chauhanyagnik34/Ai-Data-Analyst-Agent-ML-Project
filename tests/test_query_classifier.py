@@ -5,7 +5,14 @@ Unit tests for the supervised ML Query Classifier (TF-IDF + Logistic Regression)
 Verifies model convergence, evaluation metric generation, and inference predictions.
 """
 
+import os
+import sys
 import unittest
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from query_classifier import QueryClassifierModel, classify_user_query
 
 
