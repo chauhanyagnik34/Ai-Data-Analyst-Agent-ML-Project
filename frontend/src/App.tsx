@@ -121,7 +121,7 @@ function UploadCard({ onFiles, uploading, dataset, onDownload, dense = false }: 
     <div className="card-heading"><span>{dataset ? 'Your data is ready' : 'Upload dataset'}</span>
       {dataset ? <CheckCircle2 size={18} className="success-icon" /> : <UploadCloud size={18} />}</div>
     <div className={`dropzone ${dragging ? 'drag-over' : ''} ${dataset ? 'uploaded-state' : ''}`}
-      role="group" aria-label="Drop CSV, Excel or a folder to import datasets"
+      role="group" aria-label="Drop datasets, a ZIP or a folder to import datasets"
       onDragOver={e => { e.preventDefault(); setDragging(true); }}
       onDragLeave={e => { e.preventDefault(); setDragging(false); }}
       onDrop={e => { e.preventDefault(); setDragging(false); if (!uploading) void droppedFiles(e).then(onFiles); }}>
@@ -140,13 +140,13 @@ function UploadCard({ onFiles, uploading, dataset, onDownload, dense = false }: 
       </> : <>
         <div className="upload-icon"><CloudUpload size={23} strokeWidth={1.7} /></div>
         <div className="drop-title">{uploading ? 'Importing your data…' : 'Drag files or folder here'}</div>
-        <div className="drop-description">CSV, XLSX or XLS · up to 25MB/file</div>
+        <div className="drop-description">CSV, Excel, JSON, Parquet or ZIP · up to 25MB/file</div>
         <div className="upload-actions">
           <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>Browse files</button>
           <button type="button" disabled={uploading} onClick={() => folderRef.current?.click()}>Browse folder</button>
         </div>
       </>}
-      <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" multiple hidden onChange={handleFileInput} />
+      <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.json,.jsonl,.ndjson,.parquet,.feather,.zip" multiple hidden onChange={handleFileInput} />
       <input ref={folderRef} type="file" multiple hidden onChange={handleFileInput} />
     </div>
   </div>;
@@ -206,6 +206,25 @@ function App() {
     setDraft(''); setStudioDraft(''); setPage('AI Analyst');
     updateSessionList(created.session_id, 'New analysis');
   }, [updateSessionList]);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteChat = async (id: string) => {
+    if (deletingId || busy || uploading) return;
+    if (!window.confirm('Delete this chat and its uploaded data?')) return;
+    setDeletingId(id); setError('');
+    try {
+      await api(`/api/session/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setSessions(items => items.filter(item => item.id !== id));
+      if (activeId.current === id) {
+        activeId.current = null;
+        setSessionId(null); setDataset(null); setDatasetOptions([]);
+        setMessages([]); setChart(null); setTable(null); setDraft(''); setStudioDraft('');
+        localStorage.removeItem('if-v4-active-session');
+        await newSession();
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not delete chat.'); }
+    finally { setDeletingId(null); }
+  };
 
   const openSession = useCallback(async (id: string) => {
     setError('');
@@ -268,12 +287,12 @@ function App() {
   const upload = useCallback(async (files: File[]) => {
     const id = activeId.current;
     if (!id || !files.length) return;
-    const supported = files.filter(file => /\.(csv|xlsx|xls)$/i.test(file.name));
-    if (!supported.length) { setError('This folder contains no supported CSV or Excel files.'); return; }
-    if (supported.length > 20) { setError('Choose a folder with at most 20 supported files.'); return; }
+    const supported = files.filter(file => /\.(csv|tsv|txt|xlsx|xls|json|jsonl|ndjson|parquet|feather|zip)$/i.test(file.name));
+    if (!supported.length) { setError('No supported tabular datasets or ZIP files found.'); return; }
+    if (supported.length > 100) { setError('Choose a folder with at most 100 supported files.'); return; }
     setUploading(true); setError(''); setNotice('');
     const data = new FormData(); data.append('session_id', id);
-    supported.forEach(file => data.append('files', file, file.name));
+    supported.forEach(file => data.append('files', file, file.webkitRelativePath || file.name));
     try {
       const response = await api<{ dataset: Dataset; imported: string[]; ignored: string[]; notice?: string }>('/api/upload', {
         method: 'POST', body: data,
@@ -325,11 +344,12 @@ function App() {
     setMessages(old => [...old, { role: 'user', content: clean }]);
     try {
       const result = await post<{ answer: string; chart: string | null; table: DataTable | null;
-        dataset: Dataset; task: string }>('/api/query', { session_id: id, question: clean });
+        dataset: Dataset; task: string; imported?: string[] }>('/api/query', { session_id: id, question: clean });
       if (activeId.current !== id) return;
       setMessages(old => [...old, { role: 'assistant', content: result.answer, chart: result.chart,
         table: result.table, task: result.task }]);
       setDataset(result.dataset);
+      if (result.imported) setDatasetOptions(result.imported);
       if (!chartPinned) {
         if (result.chart) { setChart(result.chart); setTab('chart'); }
         if (result.table) { setTable(result.table); if (!result.chart) setTab('data'); }
@@ -599,8 +619,12 @@ function App() {
         <div className="sidebar-divider" />
         {!sidebarCollapsed && <div className="history-section"><div className="history-heading"><span>RECENT CHATS</span><Search size={15}/></div>
           <div className="history-items">{sessions.map(s =>
-            <button key={s.id} className={s.id === sessionId ? 'current' : ''} title={s.title} onClick={() => { void openSession(s.id); }}>
-              <span className="history-text">{s.title}</span><small>{prettyTime(s.updated)}</small></button>)}</div></div>}
+            <div className="history-row" key={s.id}>
+              <button className={s.id === sessionId ? 'current' : ''} title={s.title} disabled={!!deletingId} onClick={() => { void openSession(s.id); }}>
+                <span className="history-text">{s.title}</span><small>{prettyTime(s.updated)}</small></button>
+              <button type="button" className="delete-chat" title="Delete chat" aria-label={`Delete chat: ${s.title}`}
+                disabled={!!deletingId || busy || uploading} onClick={() => { void deleteChat(s.id); }}><Trash2 size={14}/></button>
+            </div>)}</div></div>}
         <div className="sidebar-bottom"><button onClick={() => setShowSettings(true)} title="Settings"><Settings2 size={18}/>{!sidebarCollapsed && <span>Settings</span>}</button>
           <button onClick={() => setSidebarCollapsed(v => !v)} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             {sidebarCollapsed ? <PanelLeftOpen size={18}/> : <PanelLeftClose size={18}/>}{!sidebarCollapsed && <span>Collapse sidebar</span>}</button></div>

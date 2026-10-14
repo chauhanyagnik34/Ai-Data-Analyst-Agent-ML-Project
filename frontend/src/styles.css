@@ -258,3 +258,6 @@ html, body, #root, .app-shell, .workspace { max-width: 100%; overflow-x: hidden;
 /* Keep saved-result shortcuts within the canvas without horizontal scrolling. */
 .studio-result-items{flex-wrap:wrap;overflow-x:hidden;overflow-y:auto;max-height:96px;align-content:flex-start}
 .studio-result-item{max-width:min(100%,245px)}
+
+/* Individual recent-chat deletion; preserve the existing sidebar layout. */
+.history-row{display:flex;align-items:center;min-width:0}.history-row>button:first-child{flex:1;min-width:0}.history-items .delete-chat{width:28px;flex:0 0 28px;padding:7px;justify-content:center;color:#929baa}.history-items .delete-chat:hover{color:#c34450;background:#fff1f2}

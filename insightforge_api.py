@@ -13,6 +13,7 @@ import re
 import tempfile
 import threading
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from data_loader import load_dataset
+from data_integration import import_files, combine_matching, join_tables, MAX_TOTAL
 from llm_client import check_api_status, call_llm
 from query_planner import plan_query
 from analysis_engine import execute_plan
@@ -33,14 +35,13 @@ from visualization import create_auto_chart
 
 APP_ROOT = Path(__file__).resolve().parent
 MAX_FILE_BYTES = 25 * 1024 * 1024
-MAX_BATCH_FILES = 20
-SUPPORTED_EXTENSIONS = {'.csv', '.xlsx', '.xls'}
+MAX_BATCH_FILES = 100
 
 app = FastAPI(title='InsightForge AI', version='4.0.0', docs_url='/api/docs', redoc_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['http://localhost:5173', 'http://127.0.0.1:5173'],
-    allow_methods=['GET', 'POST'],
+    allow_methods=['GET', 'POST', 'DELETE'],
     allow_headers=['Content-Type'],
 )
 _sessions: dict[str, dict[str, Any]] = {}
@@ -170,42 +171,64 @@ async def upload_dataset(session_id: str = Form(...), files: list[UploadFile] = 
     entry = _session(session_id)
     if not files or len(files) > MAX_BATCH_FILES:
         raise HTTPException(400, f'Select between 1 and {MAX_BATCH_FILES} supported dataset files.')
-    uploaded = []
-    ignored = []
-    for file in files:
-        name = Path((file.filename or '').replace('\\', '/')).name
-        if not name or Path(name).suffix.lower() not in SUPPORTED_EXTENSIONS:
-            ignored.append(file.filename)
-            continue
-        contents = await file.read(MAX_FILE_BYTES + 1)
-        await file.close()
-        if len(contents) > MAX_FILE_BYTES:
-            raise HTTPException(413, f'{name} exceeds the 25 MB per-file limit.')
-        with tempfile.TemporaryDirectory() as d:
-            temporary_file = Path(d) / name
-            temporary_file.write_bytes(contents)
-            df, error = load_dataset(str(temporary_file))
-        if error:
-            ignored.append(f'{name}: {error}')
-            continue
-        uploaded.append((name, df))
-    if not uploaded:
-        raise HTTPException(400, 'No supported datasets could be loaded. ' + '; '.join(ignored[:3]))
-    # One active table at a time, but keep every valid imported table for selection.
-    catalog = {}
-    for name, df in uploaded:
-        candidate, index = name, 2
-        while candidate in catalog:
-            candidate = f'{Path(name).stem}_{index}{Path(name).suffix}'
-            index += 1
-        catalog[candidate] = df
+    pending = []
+    total = 0
+    try:
+        for file in files:
+            contents = await file.read(MAX_FILE_BYTES + 1)
+            total += len(contents)
+            if len(contents) > MAX_FILE_BYTES or total > MAX_TOTAL:
+                raise HTTPException(413, 'Upload exceeds 25 MB per file or 100 MB total.')
+            pending.append((file.filename or 'unnamed', contents))
+        catalog, ignored = import_files(pending)
+        combined = combine_matching(catalog)
+    except (ValueError, OSError, zipfile.BadZipFile) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        for file in files:
+            await file.close()
+    name = combined[0] if combined else next(iter(catalog))
     with _guard:
         entry['datasets'] = catalog
-    name = next(iter(catalog))
-    info = _store_dataset(entry, catalog[name], name)
-    return {'dataset': info, 'imported': list(catalog),
-            'ignored': ignored, 'notice': ('Imported multiple datasets; choose one from the Active Dataset menu. '
-            'Multi-table joins are not supported yet.') if len(catalog) > 1 else None}
+        info = _store_dataset(entry, catalog[name], name)
+    notice = None
+    if len(catalog) > 1:
+        notice = ('Matching tables were appended with a source-file column. ' if combined else '') + (
+            'Original tables remain in Active Dataset. To join related tables, ask: '
+            'join "orders.csv" with "customers.csv" on customer_id. '
+            'Unrelated tables remain separate.')
+    return {'dataset': info, 'imported': list(catalog), 'ignored': ignored, 'notice': notice}
+
+
+@app.delete('/api/session/{sid}')
+def delete_session(sid: str):
+    # Idempotent so stale browser history can be removed after a server restart.
+    with _guard:
+        _sessions.pop(sid, None)
+    return {'ok': True}
+
+
+class IntegrateRequest(BaseModel):
+    session_id: str
+    left: str
+    right: str
+    keys: list[str]
+    how: str = 'left'
+
+
+@app.post('/api/integrate')
+def integrate(request: IntegrateRequest):
+    entry = _session(request.session_id)
+    with _guard:
+        try:
+            df = join_tables(entry['datasets'], request.left, request.right, request.keys, request.how)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        name = f'Joined: {request.left} + {request.right}'
+        entry['datasets'][name] = df
+        info = _meta(df, name)
+        entry.update(df=df, name=name, meta=info, context=[], chart=None, table=None)
+    return {'dataset': info, 'imported': list(entry['datasets'])}
 
 
 @app.post('/api/sample')
@@ -255,7 +278,15 @@ def run_query(request: QueryRequest):
         history = list(entry['context'])
     if df is None:
         raise HTTPException(400, 'Upload a dataset before asking an analysis question.')
-    if re.fullmatch(r'(?i)(hi|hello|hey|help|who are you|what can you do|thanks|thank you)[!? .]*', question):
+    join = re.fullmatch(r'(?:([a-z]+)\s+)?join\s+"([^"]+)"\s+with\s+"([^"]+)"\s+on\s+(.+)', question, re.I)
+    if join:
+        result = integrate(IntegrateRequest(session_id=request.session_id, left=join[2], right=join[3],
+                           keys=[key.strip() for key in join[4].split(',')], how=(join[1] or 'left').lower()))
+        payload = {'answer': f"Created **{result['dataset']['name']}** using a {join[1] or 'left'} join on {join[4]}. "
+                   f"The result has {result['dataset']['rows']:,} rows. Further questions use this joined table.",
+                   'chart': None, 'table': result['dataset']['preview'], 'dataset': result['dataset'],
+                   'imported': result['imported'], 'task': 'integration'}
+    elif re.fullmatch(r'(?i)(hi|hello|hey|help|who are you|what can you do|thanks|thank you)[!? .]*', question):
         answer = _conversational(question, df, name)
         payload = {'answer': answer, 'chart': None, 'table': None, 'dataset': entry['meta'], 'task': 'conversation'}
     else:

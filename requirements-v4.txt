@@ -7,3 +7,6 @@ httpx>=0.27,<1
 
 # Legacy .xls Excel support
 xlrd>=2.0.1,<3
+
+# Parquet and Feather dataset import
+pyarrow>=15,<24
