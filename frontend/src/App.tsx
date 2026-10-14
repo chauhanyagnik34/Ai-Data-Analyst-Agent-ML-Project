@@ -134,7 +134,7 @@ function UploadCard({ onFiles, uploading, dataset, onDownload, dense = false }: 
         <div className="upload-subtext">CSV export includes any analysis changes</div>
         <div className="upload-actions replace-actions">
           <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>Replace files</button>
-          <button type="button" disabled={uploading} onClick={() => folderRef.current?.click()}>Replace folder</button>
+          
         </div>
         {dragging && <span className="drop-replace-indicator">Drop to load a different dataset</span>}
       </> : <>
@@ -143,7 +143,7 @@ function UploadCard({ onFiles, uploading, dataset, onDownload, dense = false }: 
         <div className="drop-description">CSV, Excel, JSON, Parquet or ZIP · up to 25MB/file</div>
         <div className="upload-actions">
           <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>Browse files</button>
-          <button type="button" disabled={uploading} onClick={() => folderRef.current?.click()}>Browse folder</button>
+          
         </div>
       </>}
       <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.json,.jsonl,.ndjson,.parquet,.feather,.zip" multiple hidden onChange={handleFileInput} />

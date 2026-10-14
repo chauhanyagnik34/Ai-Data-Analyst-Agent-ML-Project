@@ -38,6 +38,9 @@ def generate_response(question: str, analysis_result: dict, dataset_name: str = 
     val = analysis_result.get("value")
     engine_msg = analysis_result.get("message", "")
 
+    if task in ("unique_count", "distinct_count"):
+        return engine_msg + " Missing values are excluded."
+
     # Attempt LLM natural language phrasing if Ollama is available
     status = check_api_status()
     if status["configured"]:

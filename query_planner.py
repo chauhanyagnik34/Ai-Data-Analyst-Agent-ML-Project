@@ -353,6 +353,41 @@ def plan_query(
     if len(question) > MAX_QUESTION_LENGTH:
         return None, f"Error: Question exceeds maximum length of {MAX_QUESTION_LENGTH} characters."
 
+    # Dataset-wide requests must not inherit a model-selected column.
+    scope = re.sub(r"[^a-z0-9_ ]", " ", question.lower())
+    scope = " ".join(scope.split())
+    missing_request = re.fullmatch(
+        r"(?:(?:please|show|check|list|find|display|count|report|me|the|all) )*"
+        r"(?:missing|null|empty|nan) (?:values|cells|data)"
+        r"(?: (?:in|across|for) (?:(?:the|this|whole|entire|all) )*"
+        r"(?:dataset|data|table|columns))?", scope)
+    summary_request = re.fullmatch(
+        r"(?:please )?(?:summarize|summarise|describe) "
+        r"(?:(?:the|this|whole|entire) )*(?:dataset|data|table)", scope)
+    if missing_request:
+        return validate_plan({"task": "missing_values"}, df)
+    if summary_request:
+        return validate_plan({"task": "dataset_overview"}, df)
+
+    # Resolve simple distinct-count requests before model planning.
+    unique_text = question.lower().strip().rstrip('?.!')
+    match = re.fullmatch(
+        r'(?:how many|count(?: the)?|number of) (?:unique|distinct) (.+)',
+        unique_text)
+    if match:
+        target = re.sub(
+            r'\s+(?:are there|in|inside|across|does)\b.*$', '', match[1])
+        target = re.sub(r'^values\s+(?:in|of|for)\s+', '', target)
+        target = target.strip(' `"')
+        def singular(text):
+            words = text.lower().replace('_', ' ').split()
+            return ' '.join(w[:-3] + 'y' if w.endswith('ies') else
+                            w[:-1] if w.endswith('s') and not w.endswith('ss') else w
+                            for w in words)
+        matches = [c for c in df.columns if singular(str(c)) == singular(target)]
+        if len(matches) == 1:
+            return validate_plan({'task': 'unique_count', 'column': matches[0]}, df)
+
     status = check_api_status()
 
     # If Ollama is available, use LLM-based planning
@@ -698,6 +733,9 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
     # ---------------------------------------------------------
     # DATASET OVERVIEW & PROFILING (Section A)
     # ---------------------------------------------------------
+    if (re.search(r"\b(summarize|summarise|summary)\b", q)
+            and re.search(r"\b(dataset|data|table)\b", q)):
+        return {"task": "dataset_overview"}
     if "overview" in q and ("dataset" in q or "titanic" in q or "complete" in q):
         return {"task": "dataset_overview"}
     if "shape" in q and ("memory" in q or "usage" in q):
@@ -1254,7 +1292,7 @@ def _heuristic_fallback_plan(question: str, df: pd.DataFrame, conversation_histo
     if "median" in q:
         return {"task": "median", "column": target_num_col}
 
-    if any(k in q for k in ["total", "sum"]):
+    if re.search(r"\b(total|sum)\b", q):
         return {"task": "sum", "column": target_num_col}
 
     if any(k in q for k in ["standard deviation", "std dev", "std"]):
