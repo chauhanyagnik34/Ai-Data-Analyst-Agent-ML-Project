@@ -1,12 +1,8 @@
-# Install requirements.txt first. This file adds the v4 local API layer.
-fastapi>=0.115,<1
-uvicorn>=0.30,<1
-python-multipart>=0.0.12
-# Used by the optional FastAPI smoke test
-httpx>=0.27,<1
+# FastAPI and server dependencies for InsightForge v4 API
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+pydantic>=2.6.0
 
-# Legacy .xls Excel support
-xlrd>=2.0.1,<3
-
-# Parquet and Feather dataset import
-pyarrow>=15,<24
+# Tabular formats support (Parquet / Feather)
+pyarrow>=15.0.0
